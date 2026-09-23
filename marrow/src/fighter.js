@@ -478,7 +478,7 @@ function wallcling(state, f, { pressed, hx }, ctx) {
   }
   if (pressed.down) {
     enter(f, 'air');
-    f.vx = -f.wallDir * 0.5;
+    f.vx = -f.wallDir * T.WALL_LETGO_PUSH;
     f.vy = 0;
     f.wallDir = 0;
     return;
@@ -504,7 +504,7 @@ function wallcling(state, f, { pressed, hx }, ctx) {
 
 // Hanging from a ledge: Up or Jump climbs (holding Up climbs after a moment); Down lets go.
 function ledge(state, f, { held, pressed }) {
-  if (pressed.up || pressed.jump || (held.up && f.t > 6)) {
+  if (pressed.up || pressed.jump || (held.up && f.t > T.LEDGE_CLIMB_HOLD_TICKS)) {
     enter(f, 'climb');
     return;
   }
@@ -513,7 +513,7 @@ function ledge(state, f, { held, pressed }) {
     enter(f, 'air');
     f.x -= side;
     f.vx = 0;
-    f.vy = 0.5;
+    f.vy = T.LEDGE_RELEASE_FALL;
     f.ledge = null;
     f.noGrabT = T.LEDGE_REGRAB_TICKS;
   }

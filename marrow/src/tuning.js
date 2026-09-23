@@ -29,8 +29,11 @@ export const T = {
   WALL_RUN_HEIGHT: 16,
   WALL_RUN_SPEED: 1.6,
   WALL_JUMP_SPEED: 1.8,
+  WALL_LETGO_PUSH: 0.5, // Down off a wall cling nudges away from it
   LEDGE_GRAB_RANGE: 6,
   LEDGE_REGRAB_TICKS: 12,
+  LEDGE_CLIMB_HOLD_TICKS: 6, // holding Up this long on a ledge climbs, even without a fresh press
+  LEDGE_RELEASE_FALL: 0.5, // starting fall speed when Down lets go of a ledge
   CLIMB_TICKS: 14,
 
   // Sword combat
