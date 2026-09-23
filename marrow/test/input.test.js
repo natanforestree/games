@@ -70,3 +70,43 @@ test('pause, mute and confirm arrive through takeUI', () => {
   key('keydown', 'Enter');
   assert.deepEqual([...input.takeUI()].sort(), ['confirm', 'mute', 'pause']);
 });
+
+// down.has(e.code) alone would also block this OS repeat, so it wouldn't catch a guard that lost
+// its `e.repeat ||`: the real danger is a key held through Cmd-Tab, where blur empties `down`, and
+// the OS repeat keydown on return looks exactly like a fresh press unless `e.repeat` stops it too.
+test('OS auto-repeat on refocus, after a blur emptied the held set, is still not a new press', () => {
+  const { input, target, key } = setup();
+  key('keydown', 'KeyF');
+  input.sample();
+  input.takeUI();
+  target.dispatchEvent(new Event('blur'));
+  assert.equal(input.sample().attack, false);
+  key('keydown', 'KeyF', { repeat: true });
+  assert.equal(input.sample().attack, false);
+  assert.equal(input.takeUI().has('attack'), false);
+});
+
+test('a tap not yet sampled is still cleared by losing focus', () => {
+  const { input, target, key } = setup();
+  key('keydown', 'KeyF');
+  key('keyup', 'KeyF');
+  target.dispatchEvent(new Event('blur'));
+  assert.equal(input.sample().attack, false);
+});
+
+test('Cmd or Ctrl held with a bound key is left alone: nothing recorded, and the shortcut is not prevented', () => {
+  const { input, key } = setup();
+  assert.equal(key('keydown', 'KeyD', { metaKey: true }), true); // dispatchEvent: true means preventDefault was never called
+  assert.equal(input.sample().right, false);
+  assert.equal(key('keydown', 'KeyS', { ctrlKey: true }), true);
+  assert.equal(input.sample().down, false);
+  assert.equal(input.takeUI().size, 0);
+});
+
+test('Cmd going down releases whatever was already held, since its keyup may never come', () => {
+  const { input, key } = setup();
+  key('keydown', 'KeyD');
+  assert.equal(input.sample().right, true);
+  key('keydown', 'MetaLeft');
+  assert.equal(input.sample().right, false);
+});

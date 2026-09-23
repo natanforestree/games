@@ -1,10 +1,12 @@
 // Keyboard input, sampled once per tick. sample() gives the six fighter buttons as held booleans (a tap
 // shorter than a tick still shows up for one tick); takeUI() gives the actions pressed since the last
 // call (menus, pause, mute). OS key auto-repeat is ignored, and losing focus releases every key, so
-// no key ever gets stuck down.
+// no key ever gets stuck down. A held Cmd/Ctrl is left alone (so browser shortcuts still work), and
+// macOS often never sends a keyup for a key held under Cmd, so Cmd going down or up releases everything.
 import { KEYS } from './tuning.js';
 
 const FIGHT = ['left', 'right', 'up', 'down', 'attack', 'jump'];
+const isMeta = (code) => code === 'MetaLeft' || code === 'MetaRight';
 
 export function createInput(target = globalThis, doc = globalThis.document, bindings = KEYS) {
   const actionOf = new Map();
@@ -13,7 +15,14 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   const tapped = new Set(); // fighter actions pressed since the last sample
   const ui = new Set(); // actions pressed since the last takeUI
 
+  const releaseAll = () => {
+    down.clear();
+    tapped.clear();
+  };
+
   target.addEventListener('keydown', (e) => {
+    if (isMeta(e.code)) return releaseAll(); // covers keys already held when Cmd goes down
+    if (e.metaKey || e.ctrlKey) return; // don't swallow Cmd/Ctrl shortcuts, and don't record anything: their keyup may never arrive
     const action = actionOf.get(e.code);
     if (!action) return;
     e.preventDefault();
@@ -22,11 +31,7 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
     tapped.add(action);
     ui.add(action);
   });
-  target.addEventListener('keyup', (e) => down.delete(e.code));
-  const releaseAll = () => {
-    down.clear();
-    tapped.clear();
-  };
+  target.addEventListener('keyup', (e) => (isMeta(e.code) ? releaseAll() : down.delete(e.code)));
   target.addEventListener('blur', releaseAll);
   doc?.addEventListener('visibilitychange', () => {
     if (doc.hidden) releaseAll();
