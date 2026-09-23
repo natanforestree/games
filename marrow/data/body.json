@@ -1,0 +1,23 @@
+{
+  "hilt": 4,
+  "boxes": {
+    "stand": { "w": 8, "h": 24 },
+    "crouch": { "w": 8, "h": 14 },
+    "roll": { "w": 10, "h": 10 },
+    "knocked": { "w": 20, "h": 8 }
+  },
+  "stances": [
+    { "name": "low", "height": 7, "reach": 14 },
+    { "name": "mid", "height": 13, "reach": 12 },
+    { "name": "high", "height": 18, "reach": 11 }
+  ],
+  "crouchBlade": { "height": 7, "reach": 14 },
+  "lungeExtend": 4,
+  "throwHeight": 16,
+  "engage": 0.5,
+  "hits": {
+    "divekick": { "x": [0, 8], "y": [-6, 0] },
+    "sweep": { "x": [4, 16], "y": [-4, 0] },
+    "punch": { "x": [4, 12], "y": [-20, -12] }
+  }
+}
