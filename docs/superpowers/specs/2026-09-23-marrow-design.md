@@ -3,7 +3,7 @@
 **Date:** 2026-09-23
 **Status:** Approved in conversation, awaiting review of this written spec
 
-A single-player browser fencing game for the games site (`natanforestree.github.io/games/`). It plays like **Nidhogg** (Messhof, 2014) — one-hit-kill fencing tug-of-war — and looks like **Scorn**: dark, biomechanical, surrealist. It gets an original name and original art; no assets, names or characters from either game are used.
+A single-player browser fencing game for the games site (`natanforestree.github.io/games/`). It plays like **Nidhogg** (Messhof, 2014) — one-hit-kill fencing tug-of-war — and looks dark, biomechanical and surreal, in the spirit of **Scorn**: each opponent fights you in its own nightmare world. It gets an original name and original art; no assets, names or characters from either game are used, and no painting is copied.
 
 ## Goals and success criteria
 
@@ -12,7 +12,7 @@ A single-player browser fencing game for the games site (`natanforestree.github.
 - Every combat and match rule in this spec has an automated test that passes.
 - A CPU-vs-CPU debug match runs to completion in the browser with no console errors.
 - The simulation holds 60 logic ticks per second, and rendering stays smooth on a typical laptop.
-- The art style is signed off by Nathan at the style-test stage, before the rest of the art is made.
+- The art style is signed off by Nathan at the style-test stage, before the rest of the art is made. (Done 2026-09-23: he turned down the single-world style test and approved three worlds, one per opponent. See *Worlds*.)
 
 ## Decisions made in brainstorming
 
@@ -20,9 +20,10 @@ A single-player browser fencing game for the games site (`natanforestree.github.
 |---|---|
 | Players | You vs the CPU only (no local 2-player, no online play) |
 | Scope | One map of 7 screens |
-| Fighters | Pale, faceless biomechanical figures, each lit by a strong side color: amber (you), cyan (CPU) |
+| Fighters | Faceless, lanky full-body glowing silhouettes with a dark outline: amber (you), cyan (CPU) |
 | Tech | Plain JavaScript ES modules with no build step, deployed as static files on GitHub Pages |
 | Art | Pixel art drawn with Lua scripts through the Aseprite MCP, kept in `art/marrow/` |
+| Worlds | Three, one per ladder opponent, each painting the whole map: flesh cathedral (Rusher), Beksiński-like dusk (Waiter), bioluminescent abyss (Shifter). Decided at the style checkpoint. |
 | Name | *Marrow* (working title, easy to rename) |
 
 ## 1. Gameplay
@@ -143,17 +144,17 @@ The low blade's longer reach means it usually connects first. That comes natural
 This is modelled on the original's arcade mode.
 
 **Structure**
-- You face 3 CPU opponents in order, all on the same map.
+- You face 3 CPU opponents in order, all on the same map layout. Each fights you in its own world (see *Worlds*).
 - Losing a match replays that same opponent.
 - One speedrun timer runs across the whole ladder, retries included. The final time is shown at the end, and the best time is saved in `localStorage` (inside `try/catch`).
 
 **Opponents**
 
-| # | Personality | Style | Starting reaction delay |
-|---|---|---|---|
-| 1 | **Rusher** | Charges in at low stance, lunges often, rarely throws | 14 ticks |
-| 2 | **Waiter** | Keeps its distance, mirrors your stance to block, and hunts for stance and draw disarms | 10 ticks |
-| 3 | **Shifter** | Switches tactics every few seconds; uses throws, dive kicks and sweeps | 8 ticks |
+| # | Personality | Style | Starting reaction delay | World |
+|---|---|---|---|---|
+| 1 | **Rusher** | Charges in at low stance, lunges often, rarely throws | 14 ticks | `cathedral` |
+| 2 | **Waiter** | Keeps its distance, mirrors your stance to block, and hunts for stance and draw disarms | 10 ticks | `dusk` |
+| 3 | **Shifter** | Switches tactics every few seconds; uses throws, dive kicks and sweeps | 8 ticks | `abyss` |
 
 ### Not in this version
 
@@ -170,13 +171,28 @@ This is modelled on the original's arcade mode.
 - Collision tiles are 10×10 px, so each screen is 32×18 tiles.
 
 **Palette**
-- About 24 colors in Scorn's murk: dark umber, ochre flesh-browns, bone ivory, rust, and oily, sickly yellow-greens.
-- The only saturated colors are the fighters' glow (amber `#e8a33a`, cyan `#6fd6d0`) and their ichor.
-- The palette is defined once, in `art/marrow/palette.lua`.
+- Every color is defined once, in `art/marrow/palette.lua`.
+- **The fighters' colors are shared by every world:**
+  - two 4-color glow ramps, amber (you, `#e8a33a`) and cyan (the CPU, `#6fd6d0`);
+  - a dark outline;
+  - three bone colors for the blade.
+  The glow is the fighters' identity: the fighters, the GO arrow and the ichor use it in every world.
+- **Each world has its own palette of about 21–25 colors,** saturated where the world calls for it:
+  - `cathedral`: crimson meat, flesh pinks and wet magenta, pink-ivory bone, pale rose light and cool blue-violet shadow;
+  - `dusk`: a violet-to-oxblood sky with a burnt glow band, dusty rose, a cold grey-blue haze and dark bone;
+  - `abyss`: indigo dark, magenta veins, a crimson heart, acid-green spores and bone with an oily green-to-purple sheen.
+- On screen, a world shows 34–38 colors.
+- **Rules that keep the fighters readable:**
+  - No world color equals a glow color, because the cyan fighter is a palette swap.
+  - No world color sits near the amber (about 36°) or cyan (about 177°) hue at any real saturation.
 
 **Fighters**
-- Pale, faceless, lanky figures, about 24 px tall, with visible ribbing along the spine and blades of bone or chitin (insect shell).
-- The fighter's color glows from the side it's facing.
+- Faceless, lanky figures about 24 px tall, drawn as **full-body glowing silhouettes**.
+  - The whole body is the glow ramp, with ribbing along the spine.
+  - A dark outline goes all the way round.
+  - The blade is neutral bone.
+  - One sheet serves all three worlds.
+- The glow is hottest on the side the fighter faces and dimmest on the back edge and the back limbs.
 - **Frames** are drawn by a Lua skeleton rig: each frame is a set of joint angles, which keeps the animations consistent. The fighter is drawn once in amber, and the cyan fighter is made at load time by swapping palette colors.
 - **Animations:**
   - standing in each of the 3 stances
@@ -198,31 +214,49 @@ This is modelled on the original's arcade mode.
 - A killed fighter bursts into fluid in their own color.
 - The splatter is painted onto a stain layer for that screen, and it stays there for the rest of the match.
 
+**Worlds**
+
+Each ladder opponent fights in its own world, and the world paints all seven screens. The layout, and so the gameplay, is the same in every world.
+
+| Rung | Opponent | World | Far away | Near |
+|---|---|---|---|---|
+| 0 | Rusher | `cathedral`: inside something alive | Walls of crimson flesh with small eyes; a vast half-open eye above C, a puckered orifice above each V | Finger-bone ribs and hands, a mouth of teeth over the tunnel, a molar ledge, vertebra pillars; the floor is a jaw of molars |
+| 1 | Waiter | `dusk`: the chamber broken open onto an evening that shouldn't exist | A banded violet-to-oxblood sky, towers of bodies; a pale sun with a foetus inside above C, its cord trailing to a skull on the horizon, and a cathedral of bodies above each V | Snapped ribs, hanging shrouded bodies, an ossuary slab, a bone altar and a pillar of skulls, a vertebra gate; the floor is a causeway of fused skulls |
+| 2 | Shifter | `abyss`: indigo dark lit only by living light | A dim ribcage with jellies and spores; a glowing anatomical heart above C, an embryo in a glowing sac above each V | Thorned claw-ribs with magenta veins, a chitin slab with glowing pods, a ridged shell ledge and a chitin spine, a ring of claws; the floor is black chitin scales |
+
+- The title screen shows the dusk world, like the card icon.
+- The intro shows the coming opponent's world, and the result screen the world just fought in.
+
 **The map's screens**
 
 | Screen | Features |
 |---|---|
-| `C` | A ribbed, cathedral-like chamber built from a ribcage; open flat floor |
-| `B1±` | A low fleshy tunnel with 30 px clearance: fighters can stand, but it's below `THROW_HEADROOM`, so no throwing. It opens onto a small pit. |
+| `C` | A ribbed chamber under the world's centrepiece (the eye, the sun, the heart); open flat floor |
+| `B1±` | A low tunnel with 30 px clearance: fighters can stand, but it's below `THROW_HEADROOM`, so no throwing. It opens onto a small pit. |
 | `B2±` | A pit over a hazy abyss, a raised ledge, and a wall to climb |
 | `V±` | A vaulted chamber where the Maw emerges |
 
 The layouts mirror each other left and right, so neither side has an advantage.
 
 **Backgrounds and animated detail**
-- Each screen has 2–3 background layers that scroll at different speeds for depth: far tumor-like towers, spinal columns shaped like pipe organs, and fog.
-- Small effects are drawn in code: pulsing vessels, drips and drifting spores.
+- **Behind each screen, in the current world:**
+  - A far layer at ¼ parallax. It's one 800 px panorama of the whole map, so each world's centrepieces sit above C and above each V.
+  - A translucent fog tile at ½ parallax that also drifts.
+  - The screen's own scene, painted over its collision grid, with the dark below each pit painted in.
+- The fighters' band (about y 100–150) is kept mid-to-dark and low in contrast. The busy detail is at the edges and the top.
+- Small effects are drawn in code, in the world's colors: pulsing vessels, drips and drifting spores.
 
 **The Maw**
-- An eyeless worm with a ring of bone teeth, about 160×120 px, in about 12 animation frames: burst out of the floor, swallow, sink back.
+- An eyeless worm with a ring of bone teeth, 160×120 px, in 12 animation frames: burst out of the floor, swallow, sink back. One design, shaded in each world's palette: one sheet per world.
 
 **Interface**
-- **GO arrow:** a glowing sinew pointer in the arrow holder's color.
+- **GO arrow:** a glowing sinew pointer in the arrow holder's color, with a dark outline so it reads in every world.
+- **HUD and flow screens:** lettered in the current world's HUD colors, over a veil of the world's darkest color.
 - **Font:** a pixel font from Google Fonts.
 - **Screens:** a title screen, an intro banner for each opponent, a win/lose screen, a speedrun timer and a pause overlay.
 
 **Card icon**
-- A 48×48 `marrow/icon.png` for the games page, made from `art/marrow/icon.lua` in the same way as the Snake icon.
+- A 48×48 `marrow/icon.png` for the games page, made from `art/marrow/icon.lua` in the same way as the Snake icon. It's set in the dusk world: a glowing duelist on the bone causeway under the foetus sun, a cyan blade meeting its own.
 
 **Sound**
 - All sound is generated live with Web Audio; there are no audio files.
@@ -232,8 +266,13 @@ The layouts mirror each other left and right, so neither side has an advantage.
 
 **Art pipeline**
 - Each asset has a script in `art/marrow/`, run through the MCP (`dofile`) or with `aseprite -b --script`.
-- The scripts write the editable `.aseprite` source files to `art/marrow/`, and the PNG sprite sheets plus JSON frame data to `games/marrow/assets/`.
+- The scripts write the editable `.aseprite` source files to `art/marrow/`, and the PNG sprite sheets plus JSON frame data to `games/marrow/assets/`. Each world's files go in a folder named after the world in both places.
+  - `palette.lua` lists the worlds in ladder order. `scenes.lua` writes that order to `games/marrow/assets/worlds.json`, which is how the game knows which world each rung is fought in.
+  - One loop rebuilds everything, deterministically. `tour.lua` renders a review image of each world.
 - **Style test first:** one fighter in all three stances, plus the `C` screen. Nathan approves it before any other art is made.
+  - The single-world style test was turned down.
+  - Three styles were explored, and Nathan chose to use all three, one per opponent.
+  - He approved each world's tour of its four screens before the rest of the art was wired in.
 
 ## 3. Code structure
 
@@ -252,7 +291,7 @@ Everything lives in `games/marrow/` (plain ES modules), with `package.json` cont
 | `src/level.js` | The 7 screens as 32×18 text grids, plus the legend that turns characters into tiles |
 | `src/ai.js` | The CPU opponents. They perceive the game state and output the **same intents** as the keyboard, so they follow exactly the same rules as you. |
 | `src/game.js` | Flow between title, opponent intro, match, result and ladder complete; the speedrun timer and best time |
-| `src/render.js` | Background layers, tiles, sprites (with the cyan palette swap), the stain layer, effects and the HUD |
+| `src/render.js` | Background layers in the current opponent's world, sprites (with the cyan palette swap), the stain layer, effects and the HUD |
 | `src/audio.js` | The Web Audio drone and sound effects |
 | `data/body.json` | The geometry shared between the game and the art rig |
 
@@ -297,16 +336,16 @@ Everything lives in `games/marrow/` (plain ES modules), with `package.json` cont
 
 This is the outline for the implementation plan.
 
-1. **Art style test:** the palette, the fighter rig in 3 stances, and the `C` screen. *Nathan approves it.*
+1. **Art style test:** the palette, the fighter rig in 3 stances, and the `C` screen. *Nathan approves it.* (He chose three worlds, one per opponent. Their art is ported into the repo just before step 7.)
 2. **Simulation core:** `tuning.js`, `body.json`, `physics.js`, a stripped-down `level.js`, and movement for `fighter.js`, with tests.
 3. **Combat:** `combat.js` with all of its rules, test first.
 4. **Match flow:** the arrow, respawns, screen changes and winning, with tests.
 5. **Something playable:** `input.js`, `main.js`, and `render.js` using placeholder boxes.
 6. **The CPU:** `ai.js`, with its three personalities and the CPU-vs-CPU debug mode.
-7. **The rest of the art:** all animations, tiles, backgrounds, the Maw and the UI, wired into `render.js`.
+7. **The rest of the art:** port the three approved worlds, then all animations, every world's backgrounds and Maw, and the UI, wired into `render.js` so each rung is drawn in its own world.
 8. **Sound:** `audio.js`.
 9. **Game flow:** `game.js` with the ladder, timer, title and results.
-10. **Release:** the card icon, the games-page card, README notes, then deploy and check the live site.
+10. **Release:** the games-page card with the card icon (ported with the worlds), README notes, then deploy and check the live site.
 
 ## Starting tuning values
 
