@@ -377,6 +377,7 @@ function air(state, f, { pressed, hx }, ctx) {
     if (hx) f.facing = hx;
     return;
   }
+  if (f.noGrabT > 0) f.noGrabT--;
   stanceInput(f, pressed);
   if (hx > 0 && f.vx < T.RUN_SPEED) f.vx = Math.min(T.RUN_SPEED, f.vx + T.AIR_ACCEL);
   if (hx < 0 && f.vx > -T.RUN_SPEED) f.vx = Math.max(-T.RUN_SPEED, f.vx - T.AIR_ACCEL);
@@ -384,6 +385,21 @@ function air(state, f, { pressed, hx }, ctx) {
   else if (hx) f.facing = hx;
   f.vy = Math.min(T.MAX_FALL_SPEED, f.vy + T.GRAVITY);
   P.moveX(f, ctx.screen, f.vx, ctx.open);
+  if (f.hitWall && !f.hitEdge) {
+    enter(f, 'wallcling'); // jumping into a wall clings to it
+    f.wallDir = f.hitWall;
+    f.wallRun = 0;
+    f.vx = 0;
+    f.facing = -f.wallDir;
+    return;
+  }
+  if (f.vy >= 0 && f.noGrabT === 0) {
+    const ledge = P.findLedge(f, ctx.screen, hx || Math.sign(f.vx) || f.facing, T.LEDGE_GRAB_RANGE, ctx.open);
+    if (ledge) {
+      grabLedge(f, ledge);
+      return;
+    }
+  }
   if (P.moveY(f, ctx.screen, f.vy, ctx.open)) land(f, hx, ctx);
 }
 
@@ -438,4 +454,134 @@ function throwpose(state, f, { held, pressed, hx }, ctx) {
   P.moveX(f, ctx.screen, f.vx, ctx.open);
 }
 
-const HANDLERS = { stand, run, lunge, crouch, crawl, roll, cartwheel, air, divekick, sweep, punch, throw: throwing, throwpose };
+function grabLedge(f, ledge) {
+  enter(f, 'ledge');
+  f.ledge = ledge;
+  f.facing = ledge.side;
+  f.vx = 0;
+  f.vy = 0;
+  f.wallDir = 0;
+  f.x = ledge.cornerX - (ledge.side * body.boxes.stand.w) / 2;
+  f.y = ledge.top + body.boxes.stand.h - 2;
+}
+
+// On a wall: hold toward it to run up WALL_RUN_HEIGHT, otherwise slide down slowly. Jump leaps away.
+function wallcling(state, f, { pressed, hx }, ctx) {
+  f.facing = -f.wallDir;
+  if (pressed.jump) {
+    const away = -f.wallDir;
+    enter(f, 'air');
+    f.vx = away * T.WALL_JUMP_SPEED;
+    f.vy = T.JUMP_VELOCITY;
+    f.wallDir = 0;
+    return;
+  }
+  if (pressed.down) {
+    enter(f, 'air');
+    f.vx = -f.wallDir * 0.5;
+    f.vy = 0;
+    f.wallDir = 0;
+    return;
+  }
+  if (hx === f.wallDir && f.wallRun < T.WALL_RUN_HEIGHT) f.vy = Math.min(f.vy + T.GRAVITY, -T.WALL_RUN_SPEED);
+  else f.vy = Math.min(f.vy + T.GRAVITY, T.WALL_SLIDE_SPEED);
+  if (f.vy < 0) f.wallRun -= f.vy;
+  const ledge = P.findLedge(f, ctx.screen, f.wallDir, T.LEDGE_GRAB_RANGE, ctx.open);
+  if (ledge) {
+    grabLedge(f, ledge);
+    return;
+  }
+  if (P.moveY(f, ctx.screen, f.vy, ctx.open)) {
+    f.wallDir = 0;
+    land(f, 0, ctx);
+    return;
+  }
+  if (!P.touchingWall(f, ctx.screen, f.wallDir, ctx.open)) {
+    enter(f, 'air');
+    f.wallDir = 0;
+  }
+}
+
+// Hanging from a ledge: Up or Jump climbs (holding Up climbs after a moment); Down lets go.
+function ledge(state, f, { held, pressed }) {
+  if (pressed.up || pressed.jump || (held.up && f.t > 6)) {
+    enter(f, 'climb');
+    return;
+  }
+  if (pressed.down) {
+    const side = f.ledge.side;
+    enter(f, 'air');
+    f.x -= side;
+    f.vx = 0;
+    f.vy = 0.5;
+    f.ledge = null;
+    f.noGrabT = T.LEDGE_REGRAB_TICKS;
+  }
+}
+
+function climb(state, f, input, ctx) {
+  if (f.t < T.CLIMB_TICKS) return;
+  const { side, cornerX, top } = f.ledge;
+  f.x = cornerX + side * (body.boxes.stand.w / 2 + 1);
+  f.y = top;
+  enter(f, 'stand');
+  f.ledge = null;
+  f.onGround = true;
+  f.vx = 0;
+  f.moveDir = 0;
+  f.moveT = 0;
+  faceOpponent(f, ctx);
+}
+
+// Knocked down: helpless for KNOCKDOWN_TICKS, then Up stands, Left/Right rolls up.
+function knocked(state, f, { held, hx }, ctx) {
+  f.vx *= 0.85;
+  f.vy = Math.min(T.MAX_FALL_SPEED, f.vy + T.GRAVITY);
+  P.moveX(f, ctx.screen, f.vx, ctx.open);
+  f.onGround = P.moveY(f, ctx.screen, f.vy, ctx.open) || P.isOnGround(f, ctx.screen, ctx.open);
+  if (f.heldBy !== null || f.t < T.KNOCKDOWN_TICKS || !f.onGround) return;
+  if (held.up) {
+    enter(f, 'getup');
+    f.vx = 0;
+    P.settle(f, ctx.screen, ctx.open);
+    return;
+  }
+  if (hx) {
+    enter(f, 'rollup');
+    f.facing = hx;
+  }
+}
+
+function getup(state, f, input, ctx) {
+  if (f.t < T.GETUP_TICKS || !fits(f, 'stand', ctx)) return;
+  enter(f, 'stand');
+  f.moveDir = 0;
+  f.moveT = 0;
+  if (f.armed) setStance(f, 1, true);
+  faceOpponent(f, ctx);
+}
+
+// A roll-up passes over swords on the floor and picks one up.
+function rollup(state, f, input, ctx) {
+  if (leftGround(f, ctx)) return;
+  f.vx = f.facing * T.ROLL_SPEED;
+  P.moveX(f, ctx.screen, f.vx, ctx.open);
+  if (!f.armed) {
+    const sword = swordUnder(state, f);
+    if (sword) pickUp(state, f, sword, 0);
+  }
+  if (f.t >= T.ROLLUP_TICKS && fits(f, 'stand', ctx)) {
+    enter(f, 'stand');
+    f.vx = 0;
+    f.drawT = 0;
+    f.moveDir = 0;
+    f.moveT = 0;
+    if (f.armed) setStance(f, 0, true);
+    faceOpponent(f, ctx);
+  }
+}
+
+const HANDLERS = {
+  stand, run, lunge, crouch, crawl, roll, cartwheel, air, divekick, sweep, punch, throw: throwing, throwpose,
+  wallcling, ledge, climb, knocked, getup, rollup,
+};
