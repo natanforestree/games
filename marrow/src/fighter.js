@@ -165,6 +165,14 @@ function stand(state, f, { held, pressed, hx }, ctx) {
       f.vx = 0;
       return;
     }
+    const o = ctx.opp;
+    if (o && o.state === 'knocked' && o.heldBy === null && Math.abs(o.x - f.x) <= T.NECKSNAP_RANGE && Math.abs(o.y - f.y) <= T.NECKSNAP_Y_TOLERANCE) {
+      enter(f, 'necksnap'); // unarmed, standing over a downed opponent
+      f.facing = Math.sign(o.x - f.x) || f.facing;
+      f.vx = 0;
+      o.heldBy = f.id;
+      return;
+    }
     enter(f, 'punch');
     f.vx = 0;
     f.punchLanded = false;
@@ -581,7 +589,11 @@ function rollup(state, f, input, ctx) {
   }
 }
 
+function necksnap(state, f) {
+  f.vx = 0;
+}
+
 const HANDLERS = {
   stand, run, lunge, crouch, crawl, roll, cartwheel, air, divekick, sweep, punch, throw: throwing, throwpose,
-  wallcling, ledge, climb, knocked, getup, rollup,
+  wallcling, ledge, climb, knocked, getup, rollup, necksnap,
 };

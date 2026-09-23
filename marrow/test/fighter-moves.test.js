@@ -84,6 +84,7 @@ test('a knockdown keeps you down for KNOCKDOWN_TICKS; then Up stands you up', ()
 test('a held fighter (neck snap in progress) cannot get up', () => {
   const s = alone({ x: 100 });
   const f = s.fighters[0];
+  Object.assign(s.fighters[1], { state: 'necksnap', t: 0, x: 108, y: 150, armed: false }); // a real holder: combat.js drops holds whose holder isn't snapping
   Object.assign(f, { state: 'knocked', t: T.KNOCKDOWN_TICKS + 5, heldBy: 1 });
   run(s, 10, keys('up'));
   assert.equal(f.state, 'knocked');

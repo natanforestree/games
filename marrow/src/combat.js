@@ -63,6 +63,7 @@ export function resolveCombat(state, env) {
   }
   thrownHits(state, hits);
   for (const [f, cause] of hits) kill(state, f, cause);
+  unarmedHits(state, env);
 }
 
 function bladeVsBlade(state, env, a, b) {
@@ -185,4 +186,65 @@ function fallSword(s, screen) {
     Object.assign(s, { y: row * TILE, state: 'floor', vx: 0, vy: 0 });
   } else s.y = ny;
   if (s.y > T.PIT_DEATH_Y) s.gone = true;
+}
+
+// An attack's hit box (from body.json) for fighter f, in world space.
+function hitBox(f, def) {
+  const xa = f.x + f.facing * def.x[0], xb = f.x + f.facing * def.x[1];
+  return { x0: Math.min(xa, xb), x1: Math.max(xa, xb), y0: f.y + def.y[0], y1: f.y + def.y[1] };
+}
+const overlaps = (p, q) => p.x0 < q.x1 && p.x1 > q.x0 && p.y0 < q.y1 && p.y1 > q.y0;
+
+const GROUNDED = new Set(['stand', 'run', 'lunge', 'crouch', 'crawl', 'throwpose', 'throw', 'punch', 'sweep', 'roll', 'cartwheel', 'getup', 'rollup', 'necksnap']);
+
+function knockDown(state, o, by, env, disarmToo = true) {
+  if (disarmToo && o.armed) disarm(state, o, by, 'kick');
+  Object.assign(o, { state: 'knocked', t: 0, vx: by.facing * T.KNOCKDOWN_VX, stunT: 0, ledge: null });
+  P.settle(o, env.screen, env.openFor(o));
+  state.events.push({ type: 'knockdown', id: o.id, x: o.x, y: o.y });
+}
+
+// Kicks, punches and neck snaps, from fighters still standing after the blades.
+function unarmedHits(state, env) {
+  for (const f of state.fighters) {
+    // a hold ends as soon as its holder is no longer snapping
+    if (f.heldBy !== null && state.fighters[f.heldBy].state !== 'necksnap') f.heldBy = null;
+  }
+  for (const f of state.fighters) {
+    const o = state.fighters[1 - f.id];
+    if (!isActive(f) || !isActive(o)) continue;
+    const ob = P.fighterBox(o);
+    if (f.state === 'divekick' && !f.kickLanded && o.state !== 'knocked' && overlaps(hitBox(f, body.hits.divekick), ob)) {
+      f.kickLanded = true;
+      knockDown(state, o, f, env);
+      Object.assign(f, { state: 'air', t: 0, vx: -f.facing * T.DIVEKICK_BOUNCE_VX, vy: -T.DIVEKICK_BOUNCE_VY }); // bounce off
+      state.events.push({ type: 'kick', id: f.id, x: o.x, y: o.y - T.DIVEKICK_HIT_Y });
+    } else if (f.state === 'sweep' && !f.kickLanded && f.t >= T.SWEEP_ACTIVE_FROM && f.t <= T.SWEEP_ACTIVE_TO) {
+      const hb = hitBox(f, body.hits.sweep);
+      if (o.state === 'ledge' && overlaps(hb, ob)) {
+        f.kickLanded = true;
+        Object.assign(o, { state: 'air', t: 0, vx: -o.ledge.side * T.LEDGE_KICK_VX, vy: 0, ledge: null, noGrabT: T.LEDGE_REGRAB_TICKS });
+        state.events.push({ type: 'kick', id: f.id, x: o.x, y: o.y - T.LEDGE_KICK_HIT_Y });
+      } else if (GROUNDED.has(o.state) && overlaps(hb, ob)) {
+        f.kickLanded = true;
+        knockDown(state, o, f, env);
+        state.events.push({ type: 'kick', id: f.id, x: o.x, y: o.y - T.SWEEP_HIT_Y });
+      }
+    } else if (f.state === 'punch' && !f.punchLanded && f.t >= T.PUNCH_ACTIVE_FROM && f.t <= T.PUNCH_ACTIVE_TO &&
+               o.state !== 'knocked' && overlaps(hitBox(f, body.hits.punch), ob)) {
+      f.punchLanded = true;
+      state.events.push({ type: 'punch', id: f.id, x: o.x, y: o.y - T.PUNCH_HIT_Y });
+      if (state.tick - o.punchHitAt <= T.PUNCH_COMBO_WINDOW) {
+        knockDown(state, o, f, env, false);
+        o.punchHitAt = -9999;
+      } else {
+        o.punchHitAt = state.tick;
+        P.moveX(o, env.screen, f.facing * T.PUNCH_PUSHBACK, env.openFor(o));
+        if (o.state === 'stand' || o.state === 'run' || o.state === 'punch') Object.assign(o, { state: 'stand', t: 0, vx: 0, stunT: T.PUNCH_STUN_TICKS });
+      }
+    } else if (f.state === 'necksnap' && f.t >= T.NECKSNAP_TICKS) {
+      if (o.state === 'knocked' && o.heldBy === f.id) kill(state, o, 'necksnap');
+      Object.assign(f, { state: 'stand', t: 0 });
+    }
+  }
 }

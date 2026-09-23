@@ -64,6 +64,7 @@ export const T = {
 
   // Knockdowns, punches and respawns
   KNOCKDOWN_TICKS: 30,
+  KNOCKDOWN_VX: 1.5, // sideways speed a kick or punch knockdown sends its victim skidding at
   GETUP_TICKS: 12,
   ROLLUP_TICKS: 16,
   PUNCH_TICKS: 16,
@@ -72,11 +73,19 @@ export const T = {
   PUNCH_STUN_TICKS: 10,
   PUNCH_PUSHBACK: 3,
   PUNCH_COMBO_WINDOW: 60,
+  PUNCH_HIT_Y: 16, // height above the victim's feet where a punch's impact effect appears
   SWEEP_TICKS: 20,
   SWEEP_ACTIVE_FROM: 4,
   SWEEP_ACTIVE_TO: 10,
+  SWEEP_HIT_Y: 2, // height above the victim's feet where a grounded sweep's impact effect appears
+  LEDGE_KICK_VX: 0.5, // horizontal speed a sweep knocks a ledge-hanger off the ledge at
+  LEDGE_KICK_HIT_Y: 20, // height above the victim's feet where a ledge sweep's impact effect appears
+  DIVEKICK_BOUNCE_VX: 1.2, // horizontal speed a landed dive kick bounces its attacker back at
+  DIVEKICK_BOUNCE_VY: 2.5, // upward speed a landed dive kick bounces its attacker at
+  DIVEKICK_HIT_Y: 12, // height above the victim's feet where a dive kick's impact effect appears
   NECKSNAP_TICKS: 20,
   NECKSNAP_RANGE: 12,
+  NECKSNAP_Y_TOLERANCE: 4, // vertical distance allowed between attacker and a downed opponent to start a neck snap
   RESPAWN_TICKS: 300,
   OFFSCREEN_RESPAWN_TICKS: 90,
   RESPAWN_AHEAD: 80,
