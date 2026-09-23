@@ -86,9 +86,11 @@ export const T = {
   RESPAWN_TICKS: 300,
   OFFSCREEN_RESPAWN_TICKS: 90,
   RESPAWN_AHEAD: 80,
+  RESPAWN_MIN_GAP: 40, // a fresh respawn must be at least this far in front of the arrow holder, beyond blade reach plus a lunge
   SCREEN_SLIDE_TICKS: 18,
   SLIDE_ENTRY_X: 6, // how far inside the edge the arrow holder appears after a screen slide
   START_X: [100, 220], // where each side starts, and respawns after a double kill
+  START_Y: 150, // the y findSpawn prefers when there's no better hint: match start, and a respawn with no arrow holder to spawn in front of
   SPAWN_MARGIN: 16,
   PIT_DEATH_Y: 210,
 

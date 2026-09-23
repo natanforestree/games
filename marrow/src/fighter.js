@@ -25,6 +25,13 @@ export function createFighter(id, x, y) {
 
 export const isActive = (f) => f.state !== 'dead' && f.state !== 'gone';
 
+// Keeps f.prev current from held buttons without running the state machine: used while a fighter
+// isn't being simulated (a screen slide), so a key first pressed during that time doesn't fire the
+// instant simulation resumes, the same way a key held through a death is swallowed.
+export function trackInput(f, held) {
+  for (const b of BUTTONS) f.prev[b] = !!held[b];
+}
+
 // Blade height above the feet. During a stance change it sweeps from the old height to the new.
 export function bladeHeight(f) {
   const k = Math.min(1, f.stanceT / T.STANCE_CHANGE_TICKS);

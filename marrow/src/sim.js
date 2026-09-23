@@ -3,14 +3,14 @@
 import { T } from './tuning.js';
 import { SCREENS, CENTER } from './level.js';
 import * as P from './physics.js';
-import { createFighter, updateFighter, NO_INPUT } from './fighter.js';
+import { createFighter, updateFighter, trackInput, NO_INPUT } from './fighter.js';
 import { resolveCombat } from './combat.js';
 import { edgesOpen, updateMatch, updateSlide } from './match.js';
 
 export function createState({ screen = CENTER } = {}) {
   const lvl = SCREENS[screen];
   const fighters = [0, 1].map((id) => {
-    const spot = P.findSpawn(lvl, T.START_X[id], 150);
+    const spot = P.findSpawn(lvl, T.START_X[id], T.START_Y);
     return createFighter(id, spot.x, spot.y);
   });
   return { tick: 0, screen, phase: 'play', arrow: null, winner: null, slide: null, maw: null, fighters, swords: [], nextSwordId: 1, events: [], killsThisTick: [] };
@@ -22,6 +22,9 @@ export function step(state, intents = []) {
   state.killsThisTick = [];
   if (state.phase === 'over') return state;
   if (state.phase === 'slide') {
+    // fighters aren't simulated during a slide, but their held buttons still update f.prev, so a
+    // key first pressed mid-slide doesn't fire the instant it ends (as with one held through a death)
+    for (const f of state.fighters) trackInput(f, intents[f.id] ?? NO_INPUT);
     updateSlide(state);
     return state;
   }

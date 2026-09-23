@@ -32,7 +32,7 @@ export function updateMatch(state) {
   for (const f of state.fighters) {
     if (isActive(f) || f.respawnT <= 0) continue;
     f.respawnT--;
-    if (f.respawnT === 0) respawn(state, f);
+    if (f.respawnT === 0 && !respawn(state, f)) f.respawnT = 1; // too close to the holder's blade: retry next tick
   }
   for (const f of state.fighters) {
     if (!isActive(f) || (f.x >= 0 && f.x <= VIEW_W)) continue;
@@ -46,17 +46,23 @@ export function updateMatch(state) {
 }
 
 // Back in, armed: RESPAWN_AHEAD in front of the arrow holder, on the nearest safe floor inside the
-// screen. With no arrow holder around (after a double kill), at the side's starting spot.
+// screen. With no arrow holder around (after a double kill), at the side's starting spot. Near the
+// holder's own goal edge the nearest safe floor can be clamped in close to them, inside blade reach;
+// when it lands short of RESPAWN_MIN_GAP, this holds off and returns false, so the caller retries
+// once the holder has moved on (off the screen, or back a step).
 export function respawn(state, f) {
   const screen = SCREENS[state.screen];
   const holder = state.arrow !== null && state.arrow !== f.id ? state.fighters[state.arrow] : null;
-  const spot = holder && isActive(holder)
+  const active = holder && isActive(holder);
+  const spot = active
     ? P.findSpawn(screen, holder.x + holder.dir * T.RESPAWN_AHEAD, holder.y)
-    : P.findSpawn(screen, T.START_X[f.id], 150);
+    : P.findSpawn(screen, T.START_X[f.id], T.START_Y);
+  if (active && (spot.x - holder.x) * holder.dir < T.RESPAWN_MIN_GAP) return false;
   placeFighter(f, spot.x, spot.y);
   const other = state.fighters[1 - f.id];
   f.facing = isActive(other) && other.x !== f.x ? Math.sign(other.x - f.x) : f.dir;
   state.events.push({ type: 'respawn', id: f.id, x: f.x, y: f.y });
+  return true;
 }
 
 export function placeFighter(f, x, y) {
@@ -105,6 +111,7 @@ function updateMaw(state) {
   m.t++;
   if (m.t === T.MAW_DELAY_TICKS) {
     m.x = Math.round(w.x);
+    pinWinner(state, w);
     state.events.push({ type: 'maw', x: m.x });
   }
   if (m.t === T.MAW_DELAY_TICKS + T.MAW_SWALLOW_TICKS) {
@@ -112,4 +119,21 @@ function updateMaw(state) {
     state.events.push({ type: 'swallow', id: w.id });
   }
   if (m.t >= T.MAW_DELAY_TICKS + T.MAW_TICKS) state.phase = 'over';
+}
+
+// Stops the winner dead the instant the Maw is fixed at m.x: whatever they were doing (mid-jump,
+// mid-roll, mid-lunge) would otherwise keep carrying them by momentum or move timers while their
+// input is frozen, so the Maw would rise under empty ground. Settles them onto the nearest floor
+// at their current x if that moment finds them off the ground.
+function pinWinner(state, w) {
+  const screen = SCREENS[state.screen];
+  w.vx = 0;
+  w.vy = 0;
+  if (!P.isOnGround(w, screen)) {
+    const ys = P.surfacesAt(screen, w.x);
+    if (ys.length) w.y = ys.reduce((best, y) => (Math.abs(y - w.y) < Math.abs(best - w.y) ? y : best));
+  }
+  w.state = 'stand';
+  w.t = 0;
+  w.onGround = true;
 }

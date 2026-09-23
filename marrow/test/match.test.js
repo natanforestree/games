@@ -52,14 +52,48 @@ test('a key held through a respawn does nothing until it is pressed again', () =
   assert.equal(a.state, 'lunge');
 });
 
-test('a respawn in front of an arrow holder at the screen edge stays inside the screen', () => {
+test('a respawn that would land inside blade reach of the arrow holder is held, not thrown into it', () => {
+  // Near the holder's own goal edge, RESPAWN_AHEAD clamps to SPAWN_MARGIN: too close to respawn into.
   const s = duel({ x0: 200, x1: 30 }); // the CPU holds the arrow near its goal edge
-  const a = s.fighters[0];
+  const [a, b] = s.fighters;
   s.arrow = 1;
   Object.assign(a, { state: 'dead', respawnT: 1 });
   run(s, 1);
+  assert.equal(a.state, 'dead'); // held, not respawned into blade range
+  run(s, 10); // long enough for the unfixed bug's double kill to have already happened
+  assert.equal(a.state, 'dead'); // still held: the holder hasn't moved
+  assert.ok(isActive(b)); // no double kill from an unsafe respawn
+  assert.equal(s.arrow, 1);
+});
+
+test('a held respawn happens once the arrow holder backs away from the edge', () => {
+  const s = duel({ x0: 200, x1: 30 });
+  const [a, b] = s.fighters;
+  s.arrow = 1;
+  Object.assign(a, { state: 'dead', respawnT: 1 });
+  run(s, 5);
+  assert.equal(a.state, 'dead'); // still too close
+  run(s, 60, NONE, keys('right')); // the CPU steps back from its own goal edge
   assert.equal(a.state, 'stand');
-  assert.equal(a.x, T.SPAWN_MARGIN);
+  assert.ok(isActive(a) && isActive(b));
+  assert.equal(s.arrow, 1);
+  assert.ok(P.standableAt(SCREENS[3], a.x, a.y)); // lands on solid floor
+});
+
+test('a held respawn resumes once the holder leaves the screen (a slide)', () => {
+  const s = duel({ x0: 200, x1: 30 }); // the CPU holds the arrow near its goal edge
+  const [a, b] = s.fighters;
+  s.arrow = 1;
+  Object.assign(a, { state: 'dead', respawnT: 1 });
+  Object.assign(b, { state: 'run', moveDir: -1, moveT: 30 });
+  const ev = run(s, 40, NONE, keys('left'));
+  assert.ok(has(ev, 'slide'));
+  run(s, T.SCREEN_SLIDE_TICKS, NONE, keys('left'));
+  assert.equal(s.phase, 'play');
+  assert.equal(s.screen, 2); // the next screen toward the CPU's goal
+  assert.equal(a.state, 'gone'); // the hold was replaced by the off-screen respawn timer
+  run(s, T.OFFSCREEN_RESPAWN_TICKS);
+  assert.equal(a.state, 'stand'); // appears on the new screen per the normal respawn rules
 });
 
 test('respawns never land over a pit', () => {
@@ -96,6 +130,24 @@ test('only the arrow holder advances: off their goal edge, the screen slides to 
   assert.equal(s.phase, 'play');
   assert.equal(s.screen, 4);
   assert.ok(a.x < 20);
+});
+
+test('attack pressed during a slide does not fire on entry, until released and pressed again', () => {
+  const s = duel({ x0: 300, x1: 40 });
+  const [a, b] = s.fighters;
+  s.arrow = 0;
+  Object.assign(b, { state: 'dead', respawnT: 999 });
+  Object.assign(a, { state: 'run', moveDir: 1, moveT: 30 });
+  run(s, 14, keys('right'));
+  assert.equal(s.phase, 'slide');
+  run(s, T.SCREEN_SLIDE_TICKS, keys('right attack')); // attack first pressed mid-slide, held through entry
+  assert.equal(s.phase, 'play');
+  assert.equal(a.state, 'run'); // no lunge on entry
+  run(s, 5, keys('right attack')); // still held: must not fire
+  assert.equal(a.state, 'run');
+  run(s, 1, keys('right')); // release attack
+  run(s, 1, keys('right attack')); // press again
+  assert.equal(a.state, 'lunge');
 });
 
 test('a fighter without the arrow who runs off-screen comes back after OFFSCREEN_RESPAWN_TICKS', () => {
@@ -135,6 +187,25 @@ test('entering V+ with the arrow wins for the player, and the Maw ends the match
   assert.ok(has(more, 'maw') && has(more, 'swallow'));
   assert.equal(s.phase, 'over');
   assert.ok(!isActive(b));
+});
+
+test('the Maw pins a winner still airborne, so it rises exactly under them', () => {
+  const s = duel({ screen: 5, x0: 305, x1: 40 });
+  const [a, b] = s.fighters;
+  s.arrow = 0;
+  Object.assign(b, { state: 'dead', respawnT: 999 });
+  Object.assign(a, { state: 'run', moveDir: 1, moveT: 30 });
+  for (let i = 0; i < 100 && s.phase !== 'maw'; i++) run(s, 1, keys('right'));
+  assert.equal(s.phase, 'maw');
+  run(s, T.MAW_DELAY_TICKS - 2); // just short of the freeze tick
+  Object.assign(a, { state: 'air', vx: 1.6, vy: -3, onGround: false }); // caught mid-jump
+  run(s, 2); // the tick the Maw is fixed at maw.x, pinning the winner
+  const mawX = s.maw.x;
+  assert.ok(mawX !== null);
+  assert.notEqual(a.state, 'air'); // settled onto the floor once frozen
+  run(s, T.MAW_SWALLOW_TICKS + 5);
+  assert.ok(!isActive(a));
+  assert.ok(Math.abs(a.x - mawX) <= 1, `x drifted to ${a.x}, maw at ${mawX}`);
 });
 
 test('entering V- with the arrow wins for the CPU', () => {
