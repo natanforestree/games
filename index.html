@@ -12,6 +12,7 @@
       --muted: #78716c;
       --border: #e7e5e4;
       --accent: #2563eb;
+      --thumb: #eef4e2;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -21,6 +22,7 @@
         --muted: #a8a29e;
         --border: #44403c;
         --accent: #60a5fa;
+        --thumb: #2f3a2b;
       }
     }
     * { box-sizing: border-box; }
@@ -53,6 +55,16 @@
       transition: border-color 0.15s, transform 0.15s;
     }
     .card:hover, .card:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+    .card .thumb {
+      display: grid;
+      place-items: center;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--thumb);
+      border-radius: 8px;
+    }
+    /* Pixel art is drawn tiny and scaled up by whole numbers; keep the pixels crisp. */
+    .card .thumb img { width: 144px; height: 144px; image-rendering: pixelated; }
     .card h2 { margin: 0 0 6px; font-size: 1.15rem; }
     .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
   </style>
@@ -62,10 +74,11 @@
     <h1>Games</h1>
     <p class="intro">Little things I've built. Click one to play.</p>
 
-    <!-- To add a game: put it in its own folder with an index.html, then add a card here. -->
+    <!-- To add a game: put it in its own folder with an index.html (and a 48x48 icon.png), then add a card here. -->
     <ul class="grid">
       <li>
         <a class="card" href="./snake/">
+          <div class="thumb"><img src="./snake/icon.png" alt="" width="48" height="48"></div>
           <h2>Snake</h2>
           <p>Eat, grow, don't bite yourself. Arrow keys, WASD, or swipe.</p>
         </a>
