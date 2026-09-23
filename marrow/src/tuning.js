@@ -46,11 +46,16 @@ export const T = {
   THROW_CHORD_TICKS: 3, // Up pressed this recently + Attack = instant throw
   THROW_TICKS: 10,
   DRAW_WINDOW_TICKS: 6, // how long after a run/roll/cartwheel a draw disarm can happen
+  BLADE_LEVEL_TOLERANCE: 2, // blades within this many px of each other's height count as level
   CLASH_PUSHBACK: 6,
   CLASH_STUN_TICKS: 8,
   THROWN_SWORD_SPEED: 5,
   THROW_HEADROOM: 36, // room needed above the feet to throw or raise the throw pose
   DISARM_POP_SPEED: 3,
+  DISARM_POP_VX: 0.8, // sideways speed a disarmed sword pops away at
+  DISARM_OVERLAP_SLACK: 0.5, // deliberate slack in the stance-disarm overlap check, for fractional positions
+  DISARM_FALLBACK_HEIGHT: 12, // spawn height above the feet for a disarm with no blade geometry to place it from
+  SWORD_EDGE_MARGIN: 2, // how close a falling sword may get to the screen's left/right edge
   PICKUP_RANGE: 6,
 
   // Knockdowns, punches and respawns

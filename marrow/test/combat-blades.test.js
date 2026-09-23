@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isActive } from '../src/fighter.js';
+import { blade } from '../src/combat.js';
+import { SCREENS } from '../src/level.js';
 import { duel, run, keys, NONE, has } from './helpers.js';
 
 test('level lunges clash: both are pushed back and nobody dies', () => {
@@ -135,4 +137,26 @@ test('coming out of a roll into a low stance level with their blade is a draw di
   assert.equal(a.stance, 0);
   assert.equal(b.armed, false);
   assert.ok(isActive(a) && isActive(b));
+});
+
+test("blades don't meet through the B2 pillar", () => {
+  const s = duel({ screen: 5, x0: 230, x1: 274, stance0: 0, stance1: 0 }); // B2+: a pillar spans cols 25-26, rows 11-14
+  const [a, b] = s.fighters;
+  Object.assign(a, { state: 'run', moveDir: 1, moveT: 30 });
+  const ev = run(s, 40, keys('right'), NONE); // a runs into the pillar and stops flush against it at x = 246: a draw
+  assert.equal(a.x, 246);
+  assert.equal(a.state, 'stand');
+  assert.ok(!ev.some((e) => e.type === 'disarm' || e.type === 'clash'));
+  assert.equal(a.armed, true);
+  assert.equal(b.armed, true);
+  assert.ok(isActive(a) && isActive(b));
+});
+
+test('blade(f, screen) is clipped at a solid tile; blade(f) alone is not', () => {
+  const s = duel({ screen: 5, x0: 246, x1: 274, stance0: 0, stance1: 0 }); // a stands flush against the B2 pillar
+  const [a] = s.fighters;
+  const unclipped = blade(a);
+  const clipped = blade(a, SCREENS[s.screen]);
+  assert.ok(unclipped && unclipped.reach === 14, 'without a screen the blade reaches its full, unclipped length');
+  assert.equal(clipped, null, 'with the screen, the pillar blocks it right at the hilt');
 });
