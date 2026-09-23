@@ -50,11 +50,15 @@ export const T = {
   CLASH_PUSHBACK: 6,
   CLASH_STUN_TICKS: 8,
   THROWN_SWORD_SPEED: 5,
+  THROWN_SWORD_HALF_W: 4, // half-width of a thrown sword's hit segment
+  SWORD_WALL_BOUNCE_VX: 0.5, // sideways speed a thrown sword bounces back at off a wall
   THROW_HEADROOM: 36, // room needed above the feet to throw or raise the throw pose
   DISARM_POP_SPEED: 3,
   DISARM_POP_VX: 0.8, // sideways speed a disarmed sword pops away at
   DISARM_OVERLAP_SLACK: 0.5, // deliberate slack in the stance-disarm overlap check, for fractional positions
   DISARM_FALLBACK_HEIGHT: 12, // spawn height above the feet for a disarm with no blade geometry to place it from
+  DEFLECT_VX: 1, // horizontal speed of a deflected sword
+  DEFLECT_POP_SPEED: 1.5, // upward pop of a deflected sword
   SWORD_EDGE_MARGIN: 2, // how close a falling sword may get to the screen's left/right edge
   PICKUP_RANGE: 6,
 

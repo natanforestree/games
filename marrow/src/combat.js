@@ -143,7 +143,7 @@ function moveSwords(state, env) {
 function flySword(state, s, screen) {
   const nx = s.x + s.vx;
   if (P.solidAt(screen, Math.floor(nx / TILE), Math.floor(s.y / TILE))) {
-    Object.assign(s, { state: 'loose', vx: -Math.sign(s.vx) * 0.5, vy: 0, owner: null });
+    Object.assign(s, { state: 'loose', vx: -Math.sign(s.vx) * T.SWORD_WALL_BOUNCE_VX, vy: 0, owner: null });
     state.events.push({ type: 'swordwall', x: s.x, y: s.y });
   } else s.x = nx;
 }
@@ -157,10 +157,10 @@ function thrownHits(state, hits) {
     for (const f of state.fighters) {
       const box = P.fighterBox(f);
       if (f.id === s.owner || !box || hits.has(f) || s.y < box.y0 || s.y >= box.y1) continue;
-      const sx0 = s.x - 4, sx1 = s.x + 4;
+      const sx0 = s.x - T.THROWN_SWORD_HALF_W, sx1 = s.x + T.THROWN_SWORD_HALF_W;
       const bl = blade(f);
       if (bl && bl.stance >= 1 && f.facing === -Math.sign(s.vx) && sx1 > Math.min(box.x0, bl.x0) && sx0 < Math.max(box.x1, bl.x1)) {
-        Object.assign(s, { state: 'loose', vx: -Math.sign(s.vx), vy: -1.5, owner: null });
+        Object.assign(s, { state: 'loose', vx: -Math.sign(s.vx) * T.DEFLECT_VX, vy: -T.DEFLECT_POP_SPEED, owner: null });
         state.events.push({ type: 'deflect', id: f.id, x: s.x, y: s.y });
         break;
       }
