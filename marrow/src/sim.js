@@ -5,6 +5,7 @@ import { SCREENS, CENTER } from './level.js';
 import * as P from './physics.js';
 import { createFighter, updateFighter, NO_INPUT } from './fighter.js';
 import { resolveCombat } from './combat.js';
+import { edgesOpen, updateMatch, updateSlide } from './match.js';
 
 export function createState({ screen = CENTER } = {}) {
   const lvl = SCREENS[screen];
@@ -19,10 +20,18 @@ export function step(state, intents = []) {
   state.tick++;
   state.events = [];
   state.killsThisTick = [];
-  const env = { screen: SCREENS[state.screen], openFor: () => P.CLOSED };
+  if (state.phase === 'over') return state;
+  if (state.phase === 'slide') {
+    updateSlide(state);
+    return state;
+  }
+  const env = { screen: SCREENS[state.screen], openFor: (f) => edgesOpen(state, f) };
+  const frozen = state.phase === 'maw' && state.maw.t >= T.MAW_DELAY_TICKS; // the Maw has come for the winner
   for (const f of state.fighters) {
-    updateFighter(state, f, intents[f.id] ?? NO_INPUT, { screen: env.screen, open: env.openFor(f), opp: state.fighters[1 - f.id] });
+    const held = frozen ? NO_INPUT : intents[f.id] ?? NO_INPUT;
+    updateFighter(state, f, held, { screen: env.screen, open: env.openFor(f), opp: state.fighters[1 - f.id] });
   }
   resolveCombat(state, env);
+  updateMatch(state);
   return state;
 }
