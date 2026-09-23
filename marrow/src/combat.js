@@ -209,6 +209,9 @@ function unarmedHits(state, env) {
   for (const f of state.fighters) {
     // a hold ends as soon as its holder is no longer snapping
     if (f.heldBy !== null && state.fighters[f.heldBy].state !== 'necksnap') f.heldBy = null;
+    // a snap ends as soon as its victim is no longer held by it (killed some other way, etc.), so a
+    // snapper is never stuck in `necksnap` forever with nothing left to finish
+    if (f.state === 'necksnap' && state.fighters[1 - f.id].heldBy !== f.id) Object.assign(f, { state: 'stand', t: 0 });
   }
   for (const f of state.fighters) {
     const o = state.fighters[1 - f.id];
@@ -218,7 +221,7 @@ function unarmedHits(state, env) {
       f.kickLanded = true;
       knockDown(state, o, f, env);
       Object.assign(f, { state: 'air', t: 0, vx: -f.facing * T.DIVEKICK_BOUNCE_VX, vy: -T.DIVEKICK_BOUNCE_VY }); // bounce off
-      state.events.push({ type: 'kick', id: f.id, x: o.x, y: o.y - T.DIVEKICK_HIT_Y });
+      state.events.push({ type: 'kick', id: f.id, x: o.x, y: o.y - body.boxes.stand.h / 2 });
     } else if (f.state === 'sweep' && !f.kickLanded && f.t >= T.SWEEP_ACTIVE_FROM && f.t <= T.SWEEP_ACTIVE_TO) {
       const hb = hitBox(f, body.hits.sweep);
       if (o.state === 'ledge' && overlaps(hb, ob)) {
@@ -228,19 +231,21 @@ function unarmedHits(state, env) {
       } else if (GROUNDED.has(o.state) && overlaps(hb, ob)) {
         f.kickLanded = true;
         knockDown(state, o, f, env);
-        state.events.push({ type: 'kick', id: f.id, x: o.x, y: o.y - T.SWEEP_HIT_Y });
+        state.events.push({ type: 'kick', id: f.id, x: o.x, y: (hb.y0 + hb.y1) / 2 });
       }
-    } else if (f.state === 'punch' && !f.punchLanded && f.t >= T.PUNCH_ACTIVE_FROM && f.t <= T.PUNCH_ACTIVE_TO &&
-               o.state !== 'knocked' && overlaps(hitBox(f, body.hits.punch), ob)) {
-      f.punchLanded = true;
-      state.events.push({ type: 'punch', id: f.id, x: o.x, y: o.y - T.PUNCH_HIT_Y });
-      if (state.tick - o.punchHitAt <= T.PUNCH_COMBO_WINDOW) {
-        knockDown(state, o, f, env, false);
-        o.punchHitAt = -9999;
-      } else {
-        o.punchHitAt = state.tick;
-        P.moveX(o, env.screen, f.facing * T.PUNCH_PUSHBACK, env.openFor(o));
-        if (o.state === 'stand' || o.state === 'run' || o.state === 'punch') Object.assign(o, { state: 'stand', t: 0, vx: 0, stunT: T.PUNCH_STUN_TICKS });
+    } else if (f.state === 'punch' && !f.punchLanded && f.t >= T.PUNCH_ACTIVE_FROM && f.t <= T.PUNCH_ACTIVE_TO && o.state !== 'knocked') {
+      const hb = hitBox(f, body.hits.punch);
+      if (overlaps(hb, ob)) {
+        f.punchLanded = true;
+        state.events.push({ type: 'punch', id: f.id, x: o.x, y: (hb.y0 + hb.y1) / 2 });
+        if (state.tick - o.punchHitAt <= T.PUNCH_COMBO_WINDOW) {
+          knockDown(state, o, f, env, false);
+          o.punchHitAt = -9999;
+        } else {
+          o.punchHitAt = state.tick;
+          P.moveX(o, env.screen, f.facing * T.PUNCH_PUSHBACK, env.openFor(o));
+          if (o.state === 'stand' || o.state === 'run' || o.state === 'punch') Object.assign(o, { state: 'stand', t: 0, vx: 0, stunT: T.PUNCH_STUN_TICKS });
+        }
       }
     } else if (f.state === 'necksnap' && f.t >= T.NECKSNAP_TICKS) {
       if (o.state === 'knocked' && o.heldBy === f.id) kill(state, o, 'necksnap');

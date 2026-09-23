@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { T } from '../src/tuning.js';
 import { isActive } from '../src/fighter.js';
+import { kill } from '../src/combat.js';
 import { duel, run, keys, NONE } from './helpers.js';
 
 test('a dive kick into a high blade kills the kicker', () => {
@@ -11,6 +12,16 @@ test('a dive kick into a high blade kills the kicker', () => {
   run(s, 6);
   assert.equal(a.state, 'dead');
   assert.ok(isActive(b) && b.armed);
+});
+
+test('a dive kick that would also land is not applied on the tick its kicker dies', () => {
+  const s = duel({ x0: 126, x1: 140, stance1: 2 });
+  const [a, b] = s.fighters;
+  Object.assign(a, { state: 'divekick', y: 130 });
+  run(s, 3);
+  assert.equal(a.state, 'dead');
+  assert.equal(b.state, 'stand');
+  assert.equal(b.armed, true);
 });
 
 test('a dive kick into a body knocks it down and disarms it', () => {
@@ -52,9 +63,20 @@ test('two punches in quick succession knock the opponent down', () => {
   const [a, b] = s.fighters;
   a.armed = false;
   b.armed = false;
-  run(s, 40, (i) => (i === 0 || i === 20 ? keys('attack') : NONE));
+  const ev = run(s, 40, (i) => (i === 0 || i === 20 ? keys('attack') : NONE));
   assert.equal(b.state, 'knocked');
-  assert.equal(b.armed, false);
+  assert.ok(ev.some((e) => e.type === 'knockdown'));
+});
+
+test('two punches further apart than PUNCH_COMBO_WINDOW only stun each time', () => {
+  const s = duel({ x0: 100, x1: 110 });
+  const [a, b] = s.fighters;
+  a.armed = false;
+  b.armed = false;
+  const gap = T.PUNCH_COMBO_WINDOW + 20;
+  const ev = run(s, gap + 12, (i) => (i === 0 || i === gap ? keys('attack') : NONE));
+  assert.deepEqual(ev.filter((e) => e.type === 'punch' || e.type === 'knockdown').map((e) => e.type), ['punch', 'punch']);
+  assert.equal(b.state, 'stand');
 });
 
 test('one punch only stuns', () => {
@@ -78,6 +100,35 @@ test('an unarmed Attack over a downed fighter snaps their neck; they cannot get 
   const ev = run(s, T.NECKSNAP_TICKS, NONE, keys('up'));
   assert.equal(b.state, 'dead');
   assert.ok(ev.some((e) => e.type === 'kill' && e.cause === 'necksnap'));
+});
+
+test('a neck snap is broken off when the snapper is interrupted', () => {
+  const s = duel({ x0: 100, x1: 108 });
+  const [a, b] = s.fighters;
+  a.armed = false;
+  Object.assign(b, { state: 'knocked', t: T.KNOCKDOWN_TICKS + 5, armed: false });
+  run(s, 1, keys('attack'), keys('up'));
+  assert.equal(a.state, 'necksnap');
+  run(s, 5, NONE, keys('up'));
+  kill(s, a, 'test'); // the snapper is interrupted mid-snap
+  const ev = run(s, T.NECKSNAP_TICKS + 10, NONE, keys('up'));
+  assert.equal(b.heldBy, null);
+  assert.equal(b.state, 'stand');
+  assert.ok(isActive(b));
+  assert.ok(!ev.some((e) => e.type === 'kill' && e.cause === 'necksnap'));
+});
+
+test('a neck snap ends when its victim is gone some other way, instead of leaving the snapper stuck', () => {
+  const s = duel({ x0: 100, x1: 108 });
+  const [a, b] = s.fighters;
+  a.armed = false;
+  Object.assign(b, { state: 'knocked', t: T.KNOCKDOWN_TICKS + 5, armed: false });
+  run(s, 1, keys('attack'), keys('up'));
+  assert.equal(a.state, 'necksnap');
+  run(s, 5, NONE, keys('up'));
+  kill(s, b, 'pit'); // the held victim is gone some other way mid-snap
+  run(s, 2, keys('right')); // even while still holding a direction, the snapper isn't left stuck
+  assert.notEqual(a.state, 'necksnap');
 });
 
 test('a downed fighter dies to a low blade; a mid blade passes over', () => {
