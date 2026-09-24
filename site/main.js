@@ -37,7 +37,13 @@ async function boot() {
     islands = placeIslands(art.games, art.metas, view.layout);
     links.place(islands, view);
   };
-  addEventListener('resize', fit);
+  addEventListener('resize', () => {
+    try {
+      fit();
+    } catch (err) {
+      fail(err);
+    }
+  });
   fit();
   root.classList.add('scene');
   root.classList.remove('booting');
