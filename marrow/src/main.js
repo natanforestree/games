@@ -7,6 +7,8 @@ import { createClock } from './clock.js';
 import { createRenderer } from './render.js';
 import { createAI, aiIntent, LADDER } from './ai.js';
 import { loadAssets } from './assets.js';
+import { createAudio } from './audio.js';
+import { safeStorage } from './storage.js';
 
 const params = new URLSearchParams(location.search);
 const debugCpu = params.get('debug') === 'cpu';
@@ -14,6 +16,7 @@ const speed = debugCpu ? Math.floor(Math.min(50, Math.max(1, Number(params.get('
 
 const renderer = createRenderer(document.getElementById('game'), { debug: debugCpu });
 const input = createInput(window, document);
+const audio = createAudio(safeStorage());
 const clock = createClock();
 const results = [];
 let seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : Date.now() >>> 0;
@@ -38,10 +41,13 @@ function frame(now) {
     const intents = [debugCpu ? aiIntent(ais[0], state) : input.sample(), aiIntent(ais[1], state)];
     step(state, intents);
     renderer.tick(state, state.events);
+    audio.onTick(state.events, state);
   }
   // UI actions are handled once per frame, outside the tick loop above: a frame that runs 0 ticks
   // (about half of them at 120 Hz) must still see a press, or it's lost.
   const ui = input.takeUI();
+  if (ui.size) audio.start(); // browsers allow sound only after a key press
+  if (ui.has('mute')) audio.toggleMute();
   if (match.state.phase === 'over' && (debugCpu ? match.overT > 60 : ui.has('confirm'))) {
     if (debugCpu) rung = (rung + 1) % LADDER.length;
     match = newMatch();
