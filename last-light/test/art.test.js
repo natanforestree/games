@@ -61,6 +61,18 @@ test('every sprite, with every animation, inside sprites.png', () => {
   }
 });
 
+// Against the 1.0-unit walls (a doorway's height; a window's top sits at about 0.75): a crawler comes
+// about knee-high, its back (4/5 up its frame) under the window sill; a gaunt's head (0.82 up its
+// frame) stands a little above a man's, under the doorway's top; the Mother towers over the cabin.
+test('creature sizes: a crawler about knee-high, a gaunt a little taller than you, the Mother towering', () => {
+  const { sprites } = json('sprites.json');
+  assert.ok(sprites.crawler.height <= 0.4, `crawler ${sprites.crawler.height}`);
+  assert.ok(sprites.gaunt.height > 1 && sprites.gaunt.height <= 1.15, `gaunt ${sprites.gaunt.height}`);
+  assert.ok(sprites.mother.height >= 2, `mother ${sprites.mother.height}`);
+  const order = ['crawler', 'leaper', 'gaunt', 'mother'].map((k) => sprites[k].height);
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), 'crawler < leaper < gaunt < mother');
+});
+
 test('every hands frame and HUD icon, inside their sheets', () => {
   const hands = json('hands.json').frames, hud = json('hud.json').icons;
   const hs = pngSize('assets/hands.png'), is = pngSize('assets/hud.png');

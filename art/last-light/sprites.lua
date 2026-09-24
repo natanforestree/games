@@ -1344,9 +1344,9 @@ local function pickupShotgun()
 end
 
 L.writeSprites(P, {
-  { name = "crawler", frames = crawler(), height = 0.45, stride = 0.35,
+  { name = "crawler", frames = crawler(), height = 0.35, stride = 0.35,
     anims = { walk = { 0, 1, 2, 3 }, ["side-walk"] = { 4, 5, 6, 7 }, attack = { 8, 9 }, hurt = { 10 }, die = { 11, 12, 13, 14, 15 } } },
-  { name = "gaunt", frames = gaunt(), height = 1.25, stride = 0.5,
+  { name = "gaunt", frames = gaunt(), height = 1.1, stride = 0.5,
     anims = { walk = { 0, 1, 2, 3 }, ["side-walk"] = { 4, 5, 6, 7 }, windup = { 8 }, attack = { 9, 10 }, hurt = { 11 }, die = { 12, 13, 14, 15, 16 } } },
   { name = "leaper", frames = leaper(), height = 0.7, stride = 0.4,
     anims = { walk = { 0, 1, 2, 3 }, ["side-walk"] = { 4, 5, 6, 7 }, crouch = { 8 }, leap = { 9 }, ["side-leap"] = { 10 }, attack = { 11, 12 }, hurt = { 13 }, die = { 14, 15, 16, 17, 18 } } },

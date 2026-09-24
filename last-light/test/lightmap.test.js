@@ -11,6 +11,15 @@ test('falloff is full inside `full`, smooth to nothing at `dark`', () => {
   assert.ok(near(falloff(5, 3, 7), 0.5));
 });
 
+test('the lantern: creatures read clearly within about 3 cells, are shapes out to 7, and only their eyes show past it', () => {
+  const { full, dark } = LIGHT.lantern;
+  const at = (d) => falloff(d, full, dark);
+  assert.ok(at(3) > 0.9, 'clear at 3 cells');
+  assert.ok(at(4) < 0.8 && at(5) < 0.45 && at(6) > 0.05, 'dimming to a shape from 4 to 6 cells');
+  assert.equal(at(7), 0, 'dark by 7 cells');
+  assert.ok(LIGHT.eyes.full >= dark, 'eyes still shine at full where the lantern ends');
+});
+
 test('a moving light adds to ambient, and fades with distance', () => {
   const map = room();
   const lm = createLightmap(map);

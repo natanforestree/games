@@ -27,7 +27,7 @@ export const MOUSE = {
 };
 
 export const LIGHT = {
-  lantern: { full: 3, dark: 7, intensity: 1 },
+  lantern: { full: 2.5, dark: 7, intensity: 1 }, // clear to about 3 cells, shapes out to 7, then only eyes
   flare: { full: 1.5, dark: 4, intensity: 1.1 },
   stove: { full: 2.5, dark: 8, intensity: 1 },
   muzzle: { full: 2, dark: 6, intensity: 0.8, time: 0.05 },
