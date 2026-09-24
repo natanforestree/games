@@ -25,8 +25,11 @@
     canvas {
       width: min(90vw, 480px);
       aspect-ratio: 1;
-      background: #292524;
+      background: #a8cf66;
+      border: 4px solid #2a2f26;
       border-radius: 8px;
+      /* The sprites are pixel art; keep them crisp when the canvas is scaled. */
+      image-rendering: pixelated;
     }
     .msg { color: #a8a29e; min-height: 1.4em; }
   </style>
@@ -45,6 +48,14 @@
     const SIZE = 480 / CELLS;
     const TICK_MS = 110;
 
+    // Sprite sheet made in Aseprite by art/snake-sprites.lua: 12x12 tiles, drawn at 2x.
+    // Columns are rotations (right, down, left, up); the rows are listed in that script.
+    const T = 12;
+    const ROW = { head: 0, headDead: 1, tail: 2, straight: 3, corner: 4, cornerSpot: 5, ground: 6, decor: 7 };
+    const sheet = new Image();
+    sheet.src = 'sprites.png';
+    sheet.onload = () => { buildGround(); draw(); };
+
     const canvas = document.getElementById('board');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -56,9 +67,13 @@
     bestEl.textContent = best;
 
     let snake, dir, queued, food, score, running, over, timer;
+    // Each segment keeps its id for life, so the spot pattern stays put on the body as it moves.
+    let nextId = 0;
+    let ground = null;
 
     function reset() {
-      snake = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }];
+      snake = [{ x: 9, y: 10, id: 2 }, { x: 8, y: 10, id: 1 }, { x: 7, y: 10, id: 0 }];
+      nextId = 3;
       dir = { x: 1, y: 0 };
       queued = [];
       score = 0;
@@ -75,7 +90,7 @@
 
     function step() {
       if (queued.length) dir = queued.shift();
-      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y, id: nextId++ };
       const hitWall = head.x < 0 || head.y < 0 || head.x >= CELLS || head.y >= CELLS;
       // The tail moves out of the way this tick, so it isn't a collision.
       const hitSelf = snake.slice(0, -1).some(s => s.x === head.x && s.y === head.y);
@@ -92,15 +107,47 @@
       draw();
     }
 
+    function tile(target, col, row, x, y) {
+      target.drawImage(sheet, col * T, row * T, T, T, x * SIZE, y * SIZE, SIZE, SIZE);
+    }
+
+    // Grass checkerboard with a few flowers, tufts and pebbles, drawn once per page load.
+    function buildGround() {
+      ground = document.createElement('canvas');
+      ground.width = ground.height = canvas.width;
+      const g = ground.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      for (let y = 0; y < CELLS; y++) {
+        for (let x = 0; x < CELLS; x++) {
+          tile(g, (x + y) % 2, ROW.ground, x, y);
+          if (Math.random() < 0.1) tile(g, Math.floor(Math.random() * 4), ROW.decor, x, y);
+        }
+      }
+    }
+
+    // Rotation index of a one-cell step, matching the sheet's columns.
+    function rot(from, to) {
+      const dx = to.x - from.x, dy = to.y - from.y;
+      return dx === 1 ? 0 : dy === 1 ? 1 : dx === -1 ? 2 : 3;
+    }
+
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#f87171';
-      ctx.beginPath();
-      ctx.arc((food.x + 0.5) * SIZE, (food.y + 0.5) * SIZE, SIZE * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+      if (!ground) return; // sprites still loading; onload draws
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(ground, 0, 0);
+      tile(ctx, 3, ROW.ground, food.x, food.y); // apple's shadow
+      tile(ctx, 2, ROW.ground, food.x, food.y);
+
+      const last = snake.length - 1;
       snake.forEach((s, i) => {
-        ctx.fillStyle = i === 0 ? '#86efac' : '#4ade80';
-        ctx.fillRect(s.x * SIZE + 1, s.y * SIZE + 1, SIZE - 2, SIZE - 2);
+        if (i === 0) return tile(ctx, rot(snake[1], s), over ? ROW.headDead : ROW.head, s.x, s.y);
+        if (i === last) return tile(ctx, rot(s, snake[i - 1]), ROW.tail, s.x, s.y);
+        const a = rot(s, snake[i - 1]), b = rot(s, snake[i + 1]);
+        const spotted = s.id % 2 === 0;
+        if ((a + 2) % 4 === b) return tile(ctx, (a % 2) + (spotted ? 2 : 0), ROW.straight, s.x, s.y);
+        // The unrotated corner joins left (2) and up (3); find the quarter turn that matches.
+        const first = (b - a + 4) % 4 === 1 ? a : b;
+        tile(ctx, (first + 2) % 4, spotted ? ROW.cornerSpot : ROW.corner, s.x, s.y);
       });
     }
 
@@ -108,6 +155,7 @@
       clearInterval(timer);
       running = false;
       over = true;
+      draw(); // show the crash face
       if (score > best) {
         best = score;
         bestEl.textContent = best;
@@ -118,8 +166,10 @@
 
     function turn(next) {
       if (!running) {
-        if (over) reset();
-        over = false;
+        if (over) {
+          over = false;
+          reset();
+        }
         running = true;
         msgEl.textContent = '';
         timer = setInterval(step, TICK_MS);
