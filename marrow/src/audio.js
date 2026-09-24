@@ -128,6 +128,14 @@ export function createAudio(storage) {
       if (master) master.gain.setTargetAtTime(muted ? 0 : 0.7, ctx.currentTime, 0.02);
       return muted;
     },
+    // A hidden tab's game is frozen, so its sound sleeps too. Back in view it wakes, if it had started
+    // and isn't muted; muted, it sleeps on until M unmutes it (the key press calls start()).
+    suspend() {
+      ctx?.suspend().catch(() => {});
+    },
+    resume() {
+      if (ctx && !muted) ctx.resume().catch(() => {});
+    },
     // Once per tick: play that tick's events, and let the drone follow how close the fighters are.
     onTick(events, state, inMatch = true) {
       if (!ctx || ctx.state !== 'running') return;

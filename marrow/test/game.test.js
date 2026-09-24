@@ -92,6 +92,37 @@ test('pause stops the match and the timer; Esc again resumes', () => {
   assert.ok(g.timer > timer);
 });
 
+test('a pause the page asks for (focus lost, tab hidden) freezes the match and the timer until Esc', () => {
+  const g = createGame({ storage: memory() });
+  toMatch(g);
+  ticks(g, 20);
+  const timer = g.timer, frozen = JSON.stringify(g.state);
+  g.pause();
+  ticks(g, 120);
+  assert.equal(g.paused, true);
+  assert.equal(g.timer, timer);
+  assert.equal(JSON.stringify(g.state), frozen); // the CPU doesn't move either
+  g.tick(NO_INPUT, new Set(['pause']));
+  assert.equal(g.paused, false);
+  assert.ok(g.timer > timer);
+});
+
+test("the page's pause only stops a match: not the title, the intro or a debug run", () => {
+  const g = createGame({ storage: memory() });
+  g.pause();
+  assert.equal(g.paused, false);
+  g.tick(NO_INPUT, GO);
+  g.pause();
+  ticks(g, INTRO_TICKS);
+  assert.equal(g.mode, 'match');
+  assert.equal(g.paused, false);
+  const d = createGame({ storage: memory(), debugCpu: true });
+  ticks(d, INTRO_TICKS);
+  assert.equal(d.mode, 'match');
+  d.pause();
+  assert.equal(d.paused, false);
+});
+
 test('formatTime shows minutes, seconds and hundredths', () => {
   assert.equal(formatTime(0), '0:00.00');
   assert.equal(formatTime(60 * 61 + 30), '1:01.50');

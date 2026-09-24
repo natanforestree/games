@@ -22,6 +22,25 @@ const input = createInput(window, document);
 const game = createGame({ storage, debugCpu, touchOnly, seed });
 if (debugCpu) window.__marrow = game;
 
+// Leaving the page (another window or app, another tab) pauses a match, so the CPU can't win and the
+// timer can't run while the player is away; a match that begins while they're away (after an intro
+// or a result) pauses on its first tick. A key press also means they're back, in case no focus event
+// came, and Esc resumes as from any pause. A hidden tab's sound sleeps.
+let away = false;
+const leave = () => {
+  away = true;
+  game.pause();
+};
+addEventListener('blur', leave);
+addEventListener('focus', () => (away = false));
+addEventListener('keydown', () => (away = false));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    leave();
+    audio.suspend();
+  } else audio.resume();
+});
+
 async function boot() {
   try {
     const [assets] = await Promise.all([
@@ -45,6 +64,7 @@ async function boot() {
     const n = clock.ticks(now) * speed;
     for (let i = 0; i < n; i++) {
       game.tick(input.sample(), i === 0 ? pending : NONE);
+      if (away) game.pause();
       renderer.tick(game.state, game.events);
       audio.onTick(game.events, game.state, game.mode === 'match');
     }

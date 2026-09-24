@@ -16,6 +16,11 @@ export function createGame({ storage, debugCpu = false, touchOnly = false, seed 
     debugCpu, touchOnly, seed: seed >>> 0,
   };
   g.tick = (held, ui) => tick(g, held, ui, storage);
+  // The page asks for this when the player leaves it (focus lost, tab hidden): a match pauses as if
+  // they'd pressed Esc, and Esc resumes it. Nothing else pauses, and debug runs never do.
+  g.pause = () => {
+    if (g.mode === 'match' && !g.debugCpu) g.paused = true;
+  };
   if (debugCpu) startLadder(g);
   return g;
 }
