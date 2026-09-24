@@ -1,1 +1,1 @@
-{"amber": ["#5c300f", "#a8601e", "#e8a33a", "#ffd98a"], "cyan": ["#0f4744", "#2a8f8a", "#6fd6d0", "#c9fff6"]}
+{"amber": ["#5c300f", "#a8601e", "#e8a33a", "#ffd98a"], "blade": {"body": "#d6cabe", "hilt": "#3a2e36", "tip": "#f4ece4"}, "cyan": ["#0f4744", "#2a8f8a", "#6fd6d0", "#c9fff6"], "ichor": [["#a8601e", "#e8a33a", "#ffd98a"], ["#2a8f8a", "#6fd6d0", "#c9fff6"]]}

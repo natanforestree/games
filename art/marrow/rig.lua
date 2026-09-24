@@ -1,4 +1,4 @@
--- Skeleton rig for Marrow's fighters: pale, faceless, lanky figures lit from the front by their glow.
+-- Skeleton rig for Marrow's fighters: faceless, lanky figures lit from the front by their glow.
 -- A pose is a table of joint targets in pixels relative to the feet anchor (0, 0), facing right,
 -- y up negative: hip, chest (the shoulders), head, handF/handB and footF/footB. Knees and elbows are
 -- solved with two-bone IK, so every frame keeps the same limb lengths. `rot` rotates the whole pose
@@ -99,8 +99,30 @@ return function(L, P)
     return m
   end
 
+  -- Shading roles. A palette may define `fighter` to recolor the body without touching the rig; the
+  -- defaults reproduce the original look. Each role is a hex color or a number 1-4, meaning that entry
+  -- of the amber ramp (which the game swaps for cyan). A hex role must never equal an amber or cyan
+  -- entry, or it would be swapped too.
+  --   outline         the ring around the silhouette     frontOutline  the ring just in front of it (or false)
+  --   limb, limbBack  back limbs' fill and back edge     limbRim       the back limbs' front edge
+  --   body            torso and front limbs' fill        rim2          the pixel behind the rim (or false: `lit`)
+  --   lit, shade      the pixel behind the rim, the back edge
+  --   rib = { a, b }  alternating spine ribbing
+  --   blade = { hilt, body, tip }  (hex only; draw-fighters.js must use the same three)
+  -- The front edge itself is always amber 3, or amber 4 above the waist.
+  local F = P.fighter or {}
+  F = {
+    outline = F.outline or P.umber0, frontOutline = (F.frontOutline == nil) and 1 or F.frontOutline,
+    limb = F.limb or P.bone0, limbBack = F.limbBack or P.umber3, limbRim = F.limbRim or 2,
+    body = F.body or P.bone2, lit = F.lit or P.bone3, shade = F.shade or P.bone0,
+    rib = F.rib or { P.bone3, P.umber3 }, rim2 = F.rim2 or false,
+    blade = F.blade or { P.bone0, P.bone2, P.bone3 },
+  }
+  R.roles = F
+  local function col(v) return (type(v) == "number") and P.amber[v] or v end
+
   -- Rim light: the edge facing forward glows amber (hottest on the upper body), the pixel behind it
-  -- is pale bone, the back edge is dark, and the torso shows ribs along the spine.
+  -- is lit, the back edge is shaded, and the torso shows ribs along the spine.
   function R.paint(b, ox, oy, m)
     local amber = P.amber
     for y, row in pairs(m.cells) do
@@ -108,22 +130,22 @@ return function(L, P)
         local front, front2, back = not at(m, x + 1, y), not at(m, x + 2, y), not at(m, x - 1, y)
         local c
         if mat == "B" then
-          c = front and amber[2] or (back and P.umber3 or P.bone0)
+          c = front and col(F.limbRim) or (back and col(F.limbBack) or col(F.limb))
         elseif front then
           c = (y < -12) and amber[4] or amber[3]
         elseif front2 then
-          c = P.bone3
+          c = col(F.rim2 or F.lit)
         elseif back then
-          c = P.bone0
+          c = col(F.shade)
         elseif mat == "T" and not at(m, x - 2, y) then
-          c = (y % 2 == 0) and P.bone3 or P.umber3
+          c = (y % 2 == 0) and col(F.rib[1]) or col(F.rib[2])
         else
-          c = P.bone2
+          c = col(F.body)
         end
         L.set(b, ox + x, oy + y, c)
       end
     end
-    -- outline: a dim glow just in front of the body, dark umber everywhere else
+    -- outline: a dim glow just in front of the body, dark everywhere else
     local ring = {}
     for y, row in pairs(m.cells) do
       for x in pairs(row) do
@@ -134,7 +156,9 @@ return function(L, P)
       end
     end
     for _, q in pairs(ring) do
-      L.set(b, ox + q[1], oy + q[2], at(m, q[1] - 1, q[2]) and amber[1] or P.umber0)
+      local c = col(F.outline)
+      if F.frontOutline and at(m, q[1] - 1, q[2]) then c = col(F.frontOutline) end
+      L.set(b, ox + q[1], oy + q[2], c)
     end
   end
 
@@ -146,7 +170,7 @@ return function(L, P)
   -- a 2px chitin hilt, a bone body and a pale 3px tip, `reach` pixels long starting at the hilt.
   function R.blade(b, ox, oy, h, reach, hilt)
     for i = 0, reach - 1 do
-      local c = (i < 2) and P.bone0 or ((i >= reach - 3) and P.bone3 or P.bone2)
+      local c = (i < 2) and F.blade[1] or ((i >= reach - 3) and F.blade[3] or F.blade[2])
       L.set(b, ox + hilt + i, oy - h, c)
     end
   end

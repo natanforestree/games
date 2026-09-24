@@ -16,6 +16,7 @@ function M.readJson(rel)
 end
 
 function M.writeText(rel, text)
+  M.ensureDir(rel)
   local f = assert(io.open(M.path(rel), "w"), "can't write " .. M.path(rel))
   f:write(text)
   f:close()
@@ -127,7 +128,13 @@ function M.load(rel)
   return b
 end
 
+-- Makes sure the folder that will hold a repo-relative file exists.
+function M.ensureDir(rel)
+  app.fs.makeAllDirectories(app.fs.filePath(M.path(rel)))
+end
+
 -- Writes a buffer as a one-layer RGB sprite: the editable .aseprite and/or a PNG (either may be nil).
+-- Missing folders are created.
 function M.save(b, asepriteRel, pngRel)
   local spr = Sprite(b.w, b.h, ColorMode.RGB)
   local img = spr.cels[1].image
@@ -137,8 +144,8 @@ function M.save(b, asepriteRel, pngRel)
       if c then img:drawPixel(x, y, M.rgba(c)) end
     end
   end
-  if asepriteRel then spr:saveAs(M.path(asepriteRel)) end
-  if pngRel then spr:saveCopyAs(M.path(pngRel)) end
+  if asepriteRel then M.ensureDir(asepriteRel); spr:saveAs(M.path(asepriteRel)) end
+  if pngRel then M.ensureDir(pngRel); spr:saveCopyAs(M.path(pngRel)) end
   spr:close()
 end
 
