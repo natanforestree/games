@@ -1,0 +1,7 @@
+{
+  "games": [
+    { "id": "snake", "island": "island-snake", "at": { "landscape": [14, 72], "portrait": [4, 48] }, "bob": { "period": 4200, "phase": 0 } },
+    { "id": "marrow", "island": "island-marrow", "at": { "landscape": [180, 20], "portrait": [84, 160] }, "bob": { "period": 5300, "phase": 0.4 } }
+  ],
+  "unfinished": { "island": "island-unfinished", "at": { "landscape": [300, 118], "portrait": [16, 290] }, "bob": { "period": 3700, "phase": 0.7 } }
+}

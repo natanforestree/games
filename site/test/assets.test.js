@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { PHASES } from '../sky.js';
 import { readJson, pngSize, siteFile } from './helpers.js';
 
@@ -29,4 +29,19 @@ test('each phase has a sky for each stage, and the clouds a row per phase and la
   }
   assert.deepEqual(pngSize('assets/clouds.png'), [384, 48 * 3 * PHASES.length]);
   assert.ok(existsSync(siteFile('assets/sky.png')));
+});
+
+test('each island sheet is its frames side by side, over a row of glows', () => {
+  const data = readJson('games.json');
+  for (const { island } of [data.unfinished, ...data.games]) {
+    const meta = readJson(`assets/${island}.json`);
+    assert.deepEqual(pngSize(`assets/${island}.png`), [meta.w * meta.frames, meta.h * 2], island);
+    assert.ok(Number.isInteger(meta.ms) && meta.ms > 0 && rect(meta.hit), island);
+  }
+});
+
+test('all the site art together stays under 300 KB', () => {
+  const dir = siteFile('assets/');
+  const total = readdirSync(dir).reduce((sum, f) => sum + statSync(new URL(f, dir)).size, 0);
+  assert.ok(total < 300_000, `site/assets is ${total} bytes`);
 });
