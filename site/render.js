@@ -53,12 +53,14 @@ export function createRenderer(ctx, art, info) {
   }
 
   // Two ropes from the board's top up to the middle of the island. They're drawn before the islands,
-  // so they disappear up behind the rock.
+  // so they disappear up behind the rock. Boards are wider than islands, so each rope's x is clamped
+  // into the island's hit box (less its own thickness), so it rises into the island and not open sky.
   function drawRopes({ x, y, board, hit }, ox, oy) {
     const { image, meta } = art.sign;
     const [rx, ry, rw, rh] = meta.rope;
     const top = hit[1] + Math.floor(hit[3] / 2);
-    for (const cx of [x + 8, x + board.w - 9]) {
+    const lo = hit[0] + 8, hi = hit[0] + hit[2] - 9;
+    for (const cx of [x + 8, x + board.w - 9].map((v) => Math.min(Math.max(v, lo), hi))) {
       for (let yy = top; yy < y; yy += rh) {
         const n = Math.min(rh, y - yy);
         ctx.drawImage(image, rx, ry, rw, n, ox + cx, oy + yy, rw, n);
@@ -181,9 +183,12 @@ export function createRenderer(ctx, art, info) {
     let sign = null;
     if (lit) {
       const board = boardFor(lit.island.id, Math.min(SIGN.maxW, cw - 2 * SIGN.margin));
+      // Decided from the island's resting hit box (no bob, no lift), so the choice of above/below/clamped
+      // stays stable as the island bobs; lit.dy then moves the board with the island it's decided for.
       const [hx, hy, hw, hh] = lit.island.hit;
+      const place = placeSign(lit.island.hit, board.w, board.h, [-ox, -oy, cw, ch]);
       const hit = [hx, hy + lit.dy, hw, hh];
-      sign = { board, hit, ...placeSign(hit, board.w, board.h, [-ox, -oy, cw, ch]) };
+      sign = { board, hit, x: place.x, y: place.y + lit.dy, hanging: place.hanging };
       if (sign.hanging) drawRopes(sign, ox, oy);
     }
     for (const p of placed) {

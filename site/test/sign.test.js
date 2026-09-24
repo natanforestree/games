@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIGN, wrap, layoutSign, placeSign } from '../sign.js';
+import { STAGES } from '../layout.js';
+import { placeIslands, overlaps } from '../islands.js';
+import { readJson } from './helpers.js';
 
 const mono = (s) => s.length * 6;
 const byStyle = (s, style) => s.length * (style === 'name' ? 7 : 6); // the name is bold, so wider
@@ -51,6 +54,10 @@ test('near the bottom of the canvas it goes above the island instead', () => {
   assert.deepEqual(placeSign([100, 120, 80, 60], W, H, STAGE), { x: 82, y: 47, hanging: false });
 });
 
+test("when it fits neither below nor above, it hangs below, clamped to the canvas but never past the hit box's middle", () => {
+  assert.deepEqual(placeSign([100, 30, 80, 150], W, H, STAGE), { x: 82, y: 144, hanging: true });
+});
+
 test('it stays inside the canvas at the sides', () => {
   assert.equal(placeSign([0, 50, 40, 60], W, H, STAGE).x, SIGN.margin);
   assert.equal(placeSign([360, 50, 40, 60], W, H, STAGE).x, 384 - SIGN.margin - W);
@@ -62,4 +69,20 @@ test('it may use the sky beyond the stage when the canvas is bigger', () => {
 
 test('on a canvas narrower than the sign, its left edge stays in view', () => {
   assert.equal(placeSign([10, 10, 40, 40], W, H, [0, 0, 100, 300]).x, SIGN.margin);
+});
+
+test('for every real game, in both layouts, a nominal board never covers the top half of its island', () => {
+  const data = readJson('games.json');
+  const metas = Object.fromEntries([data.unfinished, ...data.games].map((e) => [e.island, readJson(`assets/${e.island}.json`)]));
+  for (const layout of Object.keys(STAGES)) {
+    const stage = STAGES[layout];
+    const bounds = [0, 0, stage.w, stage.h];
+    for (const island of placeIslands(data, metas, layout)) {
+      if (!island.game) continue;
+      const [hx, hy, hw, hh] = island.hit;
+      const { x, y } = placeSign(island.hit, 200, 68, bounds);
+      const topHalf = [hx, hy, hw, Math.floor(hh / 2)];
+      assert.equal(overlaps([x, y, 200, 68], topHalf), false, `${island.id} in ${layout}`);
+    }
+  }
 });

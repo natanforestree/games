@@ -49,12 +49,17 @@ export function layoutSign({ name, blurb, controls }, measure, maxW = SIGN.maxW)
   };
 }
 
-// Where the board goes: centred under the island's hit box, hanging SIGN.drop below it, or above the
-// island if it would run off the bottom of the canvas, and kept SIGN.margin inside the canvas's sides.
-// bounds: the visible canvas in stage pixels. hanging: true when it's under the island (so it has ropes).
+// Where the board goes: centred under the island's hit box, hanging SIGN.drop below it (a); if that
+// doesn't fit, above the island, but only when the whole board fits above it (b); otherwise it still
+// hangs below, pulled up to stay inside the canvas but never past the middle of the hit box, so it may
+// cover the island's underside and roots but never its top half (c). bounds: the visible canvas in
+// stage pixels. hanging: true when it's under the island (so it has ropes).
 export function placeSign([hx, hy, hw, hh], w, h, [bx, by, bw, bh]) {
   const x = Math.max(bx + SIGN.margin, Math.min(Math.round(hx + hw / 2 - w / 2), bx + bw - SIGN.margin - w));
   const below = hy + hh + SIGN.drop;
-  if (below + h <= by + bh - SIGN.margin) return { x, y: below, hanging: true };
-  return { x, y: Math.max(by + SIGN.margin, hy - SIGN.drop - h), hanging: false };
+  if (below + h <= by + bh - SIGN.margin) return { x, y: below, hanging: true }; // (a)
+  const above = hy - SIGN.drop - h;
+  if (above >= by + SIGN.margin) return { x, y: above, hanging: false }; // (b)
+  const y = Math.max(by + bh - SIGN.margin - h, hy + Math.floor(hh / 2)); // (c)
+  return { x, y, hanging: true };
 }
