@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Last Light</title>
+  <link rel="icon" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; image-rendering: crisp-edges; image-rendering: pixelated; }
+    body, button, input { font: 12px/1.6 Silkscreen, monospace; color: #d9d2c0; }
+    a { color: #8f8a7c; }
+    a.back { position: fixed; top: 8px; left: 10px; text-decoration: none; }
+    a.back:hover, a.back:focus { color: #d9d2c0; }
+    .note { position: fixed; inset: 0; margin: auto; height: fit-content; padding: 0 16px; text-align: center; }
+    #pause { position: fixed; inset: 0; margin: auto; width: min(320px, calc(100vw - 32px)); height: fit-content; padding: 20px; box-sizing: border-box; background: #0b0e16ee; border: 2px solid #2b3040; display: grid; gap: 12px; }
+    #pause[hidden], .note[hidden] { display: none; }
+    #pause h2 { margin: 0; font-size: 16px; text-align: center; }
+    #pause label { display: grid; gap: 4px; }
+    #pause label.check { display: flex; gap: 8px; align-items: center; }
+    #pause button { padding: 6px; background: #1c2130; border: 2px solid #3b4258; cursor: pointer; }
+    #pause button:hover, #pause button:focus-visible { background: #2b3246; }
+  </style>
+</head>
+<body>
+  <canvas id="game" aria-label="Last Light: a first-person survival game for keyboard and mouse"></canvas>
+  <a class="back" href="../">← games</a>
+  <form id="pause" hidden onsubmit="return false">
+    <h2>Paused</h2>
+    <button id="resume" type="button">Resume</button>
+    <p id="pause-note" hidden>Click Resume again in a moment.</p>
+    <label>Mouse sensitivity <input id="sensitivity" type="range" min="0" max="100"></label>
+    <label>Volume <input id="volume" type="range" min="0" max="100"></label>
+    <label class="check"><input id="mute" type="checkbox"> Mute (M)</label>
+    <button id="quit" type="button">Quit to title</button>
+  </form>
+  <p class="note" id="phone" hidden>Last Light needs a keyboard and mouse.<br><a href="../">Back to the games</a></p>
+  <p class="note" id="message" hidden><strong></strong><br><span></span></p>
+  <p class="note" id="nostart" hidden>Last Light couldn't start. It needs a current desktop browser:<br>Chrome, Firefox or Safari.</p>
+  <noscript><p class="note">Last Light needs JavaScript.</p></noscript>
+  <script type="module" src="./src/main.js"></script>
+  <script>
+    // If the game's module never starts (a browser too old for it), say so in plain text. main.js
+    // removes this message the moment it runs, so a slow connection only delays it.
+    setTimeout(function () {
+      var m = document.getElementById('nostart');
+      if (m) m.hidden = false;
+    }, 6000);
+  </script>
+</body>
+</html>
