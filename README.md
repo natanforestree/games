@@ -5,8 +5,13 @@ Little browser games, hosted on GitHub Pages at https://natanforestree.github.io
 ## Adding a game
 
 1. Make a folder for it, e.g. `pong/`, with an `index.html` inside.
-2. Add a card linking to `./pong/` in the root `index.html`, with a 48x48 pixel-art `pong/icon.png`.
-3. Commit and push to `main`. Pages redeploys automatically (about a minute).
+2. Add its link to the list in the root `index.html`, in the same form as the others, on one line:
+   `<li><a href="./pong/" data-game="pong"><strong>Pong</strong> <span class="blurb">…</span> <span class="controls">…</span></a></li>`.
+   Browsers that can't show the scene show this list, and the scene writes these words on the island's sign.
+3. Paint its island: copy `art/site/island-snake.lua` to `art/site/island-pong.lua` and repaint it in the game's own style, copying the colours you borrow into `art/site/palette.lua`. Keep it 96–140 px wide.
+4. Add it to `site/games.json` with its id, `"island": "island-pong"`, a bob, and a spot in both layouts. Give it the unfinished island's spot and move the unfinished island somewhere free.
+5. Rebuild the site art (see "The games page") and run the tests: `cd site && npm test`. They check that every link has an island and that nothing overlaps.
+6. Commit and push to `main`. Pages redeploys automatically (about a minute).
 
 ## Running locally
 
@@ -15,6 +20,20 @@ python3 -m http.server 8000
 ```
 
 Then open http://localhost:8000.
+
+## The games page
+
+The front page is a living pixel-art scene. Each game floats as its own island, painted in that game's style, in a sky that follows your local time of day. The design spec is `docs/superpowers/specs/2026-09-23-games-islands-design.md`.
+
+- Code: `site/`, plain ES modules with no build step. Tests (Node 22, no dependencies): `cd site && npm test`.
+- See any time of day: `/?time=dawn`, `day`, `dusk` or `night`.
+- Art: each piece has a script in `art/site/`, and `palette.lua` holds every colour. Rebuild it all from the repo root. It's deterministic: an unchanged script rebuilds its files byte for byte.
+
+  ```sh
+  for s in sky island-snake island-marrow island-unfinished sign; do /Applications/Aseprite.app/Contents/MacOS/aseprite -b --script art/site/$s.lua; done
+  ```
+
+  `aseprite -b --script art/site/style-test.lua` writes `art/site/preview-style.png`, which shows all four skies with the islands, and each island script writes a preview GIF. Previews aren't committed.
 
 ## Art
 
