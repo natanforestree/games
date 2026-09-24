@@ -267,6 +267,7 @@ function run(state, f, { pressed, hx }, ctx) {
       return;
     }
     enter(f, 'roll');
+    P.settle(f, ctx.screen, ctx.open); // the roll box is wider than a standing body: step out of a wall it now overlaps
     return;
   }
   stanceInput(f, pressed); // choose the stance you'll draw into

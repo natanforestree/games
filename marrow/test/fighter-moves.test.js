@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { T } from '../src/tuning.js';
+import { SCREENS } from '../src/level.js';
+import * as P from '../src/physics.js';
 import { alone, run, keys, NONE } from './helpers.js';
 
 test('falling past a ledge corner grabs it; Up climbs on top', () => {
@@ -102,4 +104,17 @@ test('rolling up from a knockdown picks up a sword on the floor', () => {
   assert.equal(s.swords.length, 0);
   assert.equal(f.state, 'stand');
   assert.equal(f.stance, 0);
+});
+
+test('a roll started flush against a wall never overlaps it: the wider roll box settles out of the wall', () => {
+  const s = alone({ screen: 5, x: 220 }); // B2+: the pillar's left face is at x = 250
+  const f = s.fighters[0];
+  let rolled = false;
+  for (let i = 0; i < 60; i++) {
+    const flush = f.state === 'run' && f.x === 246; // running into the pillar, pressed flat against it
+    rolled ||= flush || f.state === 'roll';
+    run(s, 1, rolled ? keys('right down') : keys('right')); // Down while running rolls; holding it keeps it a roll
+    assert.ok(P.fits(f, f.state, SCREENS[s.screen]), `tick ${i}: ${f.state} at x = ${f.x} overlaps the pillar`);
+  }
+  assert.ok(rolled, 'never got flush against the pillar and rolled');
 });
