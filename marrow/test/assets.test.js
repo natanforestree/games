@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import palette from '../assets/palette.json' with { type: 'json' };
-import { loadAssets, swapPixels } from '../src/assets.js';
+import { loadAssets, swapPixels, worldFor } from '../src/assets.js';
 
 // Node has no Image or canvas: an image is stood in for by its URL, JSON is read from disk, and the
 // cyan swap records what it was asked to do.
@@ -30,4 +30,27 @@ test('the fighter sheet loads with a cyan twin, and the palette brings the blade
   assert.deepEqual(cyan, { swapOf: amber.href, from: palette.amber, to: palette.cyan });
   assert.equal(assets.fighter.data.anims.stand1.frames.length, 1);
   assert.deepEqual(assets.palette.blade, palette.blade);
+});
+
+test('each world loads its far panorama, fog, a scene per screen base and its colors', async () => {
+  const assets = await loadAssets(undefined, fakeIO);
+  assert.deepEqual(assets.worldOrder, ['cathedral', 'dusk', 'abyss']);
+  for (const name of assets.worldOrder) {
+    const w = assets.worlds[name];
+    assert.match(w.far.href, new RegExp(`/assets/${name}/far\\.png$`));
+    assert.match(w.fog.href, new RegExp(`/assets/${name}/fog\\.png$`));
+    assert.deepEqual(Object.keys(w.scenes).sort(), ['B1', 'B2', 'C', 'V']); // "colors" is not a scene
+    for (const [base, scene] of Object.entries(w.scenes)) {
+      assert.match(scene.image.href, new RegExp(`/assets/${name}/scene-${base}\\.png$`));
+      assert.ok(Array.isArray(scene.fx.vessels) && Array.isArray(scene.fx.drips), `${name} ${base}`);
+    }
+    assert.match(w.colors.hud.markHere, /^#[0-9a-f]{6}$/);
+  }
+});
+
+test('each ladder rung is drawn in its own world', async () => {
+  const assets = await loadAssets(undefined, fakeIO);
+  assert.equal(worldFor(assets, 0), assets.worlds.cathedral);
+  assert.equal(worldFor(assets, 1), assets.worlds.dusk);
+  assert.equal(worldFor(assets, 2), assets.worlds.abyss);
 });

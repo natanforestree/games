@@ -2,6 +2,9 @@
 import { VIEW_W, VIEW_H } from './tuning.js';
 import { drawPlaceholder, drawHitboxes } from './draw-debug.js';
 import { drawFighters, drawSwords } from './draw-fighters.js';
+import { drawWorld } from './draw-world.js';
+import { createEffects } from './effects.js';
+import { worldFor } from './assets.js';
 
 export function createRenderer(canvas, { debug = false } = {}) {
   const ctx = canvas.getContext('2d');
@@ -14,13 +17,23 @@ export function createRenderer(canvas, { debug = false } = {}) {
   };
   addEventListener('resize', fit);
   fit();
-  let assets = null;
+  const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+  let assets = null, fx = null, frame = 0, lastState = null;
   return {
     setAssets(a) {
       assets = a;
+      fx = createEffects(makeCanvas, a.palette.ichor);
     },
-    // Called once per simulation tick with that tick's events (Task 16 uses it for ichor).
-    tick() {},
+    // Called once per simulation tick with that tick's events.
+    tick(state, events) {
+      if (!fx) return;
+      if (state !== lastState) {
+        fx.reset(); // a new match: clean floors
+        lastState = state;
+      }
+      fx.onEvents(events);
+      fx.update();
+    },
     // Drawn before any art has loaded, so its colors are fixed here rather than taken from a world.
     message(title, detail) {
       ctx.fillStyle = '#0b0807';
@@ -33,12 +46,19 @@ export function createRenderer(canvas, { debug = false } = {}) {
       ctx.fillStyle = '#9e917a';
       ctx.fillText(detail, VIEW_W / 2, 92);
     },
-    draw(state) {
+    // rung: the ladder rung being fought (0-2), which picks the world the match is drawn in.
+    draw(state, rung = 0) {
+      frame++;
       ctx.imageSmoothingEnabled = false;
-      drawPlaceholder(ctx, state, { fighters: !assets });
-      if (assets && !state.slide) {
+      if (!assets) {
+        drawPlaceholder(ctx, state);
+        return;
+      }
+      drawWorld(ctx, state, worldFor(assets, rung), fx, frame);
+      if (!state.slide) {
         drawSwords(ctx, state, assets);
         drawFighters(ctx, state, assets);
+        fx.drawDrops(ctx, state.screen, 0);
       }
       if (debug) drawHitboxes(ctx, state);
     },

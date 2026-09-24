@@ -7,7 +7,32 @@ export async function loadAssets(base = new URL('../assets/', import.meta.url), 
   const pair = (img) => [img, swap(img, palette.amber, palette.cyan)];
   const [fighterData, fighterImg] = await Promise.all([json(at('fighter.json')), image(at('fighter.png'))]);
   const assets = { palette, fighter: { data: fighterData, sheets: pair(fighterImg) } };
+  // One world per ladder rung, in worlds.json's order; each paints the whole map in its own style.
+  assets.worldOrder = (await json(at('worlds.json'))).order;
+  const worlds = await Promise.all(assets.worldOrder.map((name) => loadWorld(name, at, image, json)));
+  assets.worlds = Object.fromEntries(assets.worldOrder.map((name, i) => [name, worlds[i]]));
   return assets;
+}
+
+// The screen bases every world paints. Its scenes.json also has a "colors" key, which isn't a scene,
+// so the scenes are always read by this list, never by the file's keys.
+const BASES = ['C', 'B1', 'B2', 'V'];
+
+// One world's art: the far panorama, the fog, each base's scene with the anchors for its living
+// details, and the world's effect and HUD colors.
+async function loadWorld(name, at, image, json) {
+  const file = (f) => at(`${name}/${f}`);
+  const sceneData = await json(file('scenes.json'));
+  const [far, fog, ...sceneImages] = await Promise.all([
+    image(file('far.png')), image(file('fog.png')), ...BASES.map((b) => image(file(`scene-${b}.png`))),
+  ]);
+  const scenes = Object.fromEntries(BASES.map((b, i) => [b, { image: sceneImages[i], fx: sceneData[b] }]));
+  return { far, fog, scenes, colors: sceneData.colors };
+}
+
+// The world a ladder rung is fought in: rung r is worlds.json's order[r].
+export function worldFor(assets, rung) {
+  return assets.worlds[assets.worldOrder[rung]];
 }
 
 export function loadImage(src) {

@@ -19,7 +19,7 @@ const results = [];
 let seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : Date.now() >>> 0;
 let rung = 0;
 let match = newMatch();
-if (debugCpu) window.__marrow = { results, get state() { return match.state; } };
+if (debugCpu) window.__marrow = { results, get state() { return match.state; }, get rung() { return rung; } };
 
 function newMatch() {
   return { state: createState(), ais: [createAI(0, 'shifter', seed++), createAI(1, LADDER[rung], seed++)], overT: 0 };
@@ -46,7 +46,7 @@ function frame(now) {
     if (debugCpu) rung = (rung + 1) % LADDER.length;
     match = newMatch();
   }
-  renderer.draw(match.state);
+  renderer.draw(match.state, rung); // each rung is fought in its own world
   requestAnimationFrame(frame);
 }
 

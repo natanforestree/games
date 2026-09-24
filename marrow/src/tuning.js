@@ -98,6 +98,21 @@ export const T = {
   MAW_DELAY_TICKS: 45,
   MAW_SWALLOW_TICKS: 40,
   MAW_TICKS: 150,
+
+  // Ichor (effects.js): a kill bursts into the victim's own glow ramp, from palette.json.
+  ICHOR_DROPS_PER_KILL: 46,
+  ICHOR_DROP_SPEED_MIN: 0.8,
+  ICHOR_DROP_SPEED_RANGE: 3.2,
+  ICHOR_DROP_SPREAD_X: 6, // horizontal jitter around the kill point
+  ICHOR_DROP_RISE_MIN: 6, // upward jitter above the kill point
+  ICHOR_DROP_RISE_RANGE: 14,
+  ICHOR_DROP_LIFE_TICKS: 90,
+  ICHOR_DROP_GRAVITY: 0.2,
+  ICHOR_DROP_BIG_CHANCE: 0.25, // chance a drop is the larger of its two sizes
+  ICHOR_SPLASH_STAMPS: 12, // floor stains stamped at the moment of the kill
+  ICHOR_SPLASH_SPREAD_X: 22,
+  ICHOR_SPLASH_SPREAD_Y: 2,
+  ICHOR_OFFSCREEN_MARGIN: 10, // below VIEW_H before a falling drop is dropped, landed or not
 };
 
 export const KEYS = {
