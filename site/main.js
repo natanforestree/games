@@ -12,26 +12,32 @@ const root = document.documentElement;
 root.classList.add('js', 'booting'); // index.html's fallback timer leaves a booting page alone
 
 let links = null; // set once boot() creates it; fail() may run before or after that
+let failed = false; // once true, fit() and frame() stop touching the page: it's showing the plain list
 
 function fail(err) {
   console.error(err);
+  failed = true;
   root.classList.remove('js', 'booting', 'scene');
   links?.reset(); // undo place()'s inline sizing, so the plain list isn't left with island-sized gaps
 }
 
+const FONT_TIMEOUT_MS = 1500; // fonts are optional; don't let a stalled request block the scene forever
+
 async function boot() {
   const canvas = document.getElementById('scene');
   const ctx = canvas.getContext('2d');
+  const fonts = Promise.all(['16px Silkscreen', '8px Silkscreen', '700 8px Silkscreen'].map((font) => document.fonts.load(font)))
+    .catch((err) => console.warn('Silkscreen not loaded; using the fallback font', err));
   const [art] = await Promise.all([
     loadScene(),
-    Promise.all(['16px Silkscreen', '8px Silkscreen', '700 8px Silkscreen'].map((font) => document.fonts.load(font)))
-      .catch((err) => console.warn('Silkscreen not loaded; using the fallback font', err)),
+    Promise.race([fonts, new Promise((resolve) => setTimeout(resolve, FONT_TIMEOUT_MS))]),
   ]);
   links = createLinks(document, window);
   const renderer = createRenderer(ctx, art, links.info);
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let view, islands;
   const fit = () => {
+    if (failed) return;
     view = chooseView(innerWidth, innerHeight, devicePixelRatio || 1);
     canvas.width = view.cw;
     canvas.height = view.ch;
@@ -53,6 +59,7 @@ async function boot() {
   // requestAnimationFrame doesn't run in a hidden tab, so the scene pauses there by itself.
   let start;
   const frame = (now) => {
+    if (failed) return;
     try {
       start ??= now;
       renderer.draw({
