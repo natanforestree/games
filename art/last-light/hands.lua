@@ -11,7 +11,7 @@
 --
 -- Each frame is cropped from a view-sized canvas, so its (ox, oy) is exact: where its top-left sits
 -- relative to the bottom centre of the view. Every frame reaches the bottom of the view, and nothing
--- covers the crosshair.
+-- comes within 5 px of the crosshair at any view height the game draws at (checked at the end).
 local here = debug.getinfo(1, "S").source:sub(2):match("^(.-)[^/]+$") or ""
 local L = dofile(here .. "lib.lua")
 local P = L.palette()
@@ -321,14 +321,14 @@ end
 -- A muzzle flash at the view point (fx, fy), blasting away along the unit direction (dx, dy).
 local function flash(b, fx, fy, dx, dy, size)
   local ang = math.atan(dy, dx)
-  glow(b, fx + dx * 2, fy + dy * 2, 15, C.fire3, 0.55 * size, true)
-  for _, a in ipairs({ -1.25, -0.55, 0.55, 1.25 }) do
+  glow(b, fx, fy, 8 * size, C.fire3, 0.6, true)
+  for _, a in ipairs({ -1.1, -0.5, 0.5, 1.1 }) do
     local ex, ey = math.cos(ang + a), math.sin(ang + a)
-    L.line(b, fx, fy, fx + ex * 8 * size, fy + ey * 8 * size, C.fire3, 2)
-    L.line(b, fx, fy, fx + ex * 5 * size, fy + ey * 5 * size, C.fire4, 1)
+    L.line(b, fx, fy, fx + ex * 7 * size, fy + ey * 7 * size, C.fire3, 2)
+    L.line(b, fx, fy, fx + ex * 4.5 * size, fy + ey * 4.5 * size, C.fire4, 1)
   end
-  for _, r in ipairs({ { 8, 4.2, C.fire3 }, { 5.5, 3, C.window }, { 3, 1.8, C.fire4 } }) do
-    blot(b, fx + dx * r[1] * 0.75 * size, fy + dy * r[1] * 0.75 * size, r[1] * size, r[2] * size, ang, r[3])
+  for _, r in ipairs({ { 6.5, 3.8, C.fire3 }, { 4.5, 2.8, C.window }, { 2.5, 1.7, C.fire4 } }) do
+    blot(b, fx + dx * r[1] * 0.7 * size, fy + dy * r[1] * 0.7 * size, r[1] * size, r[2] * size, ang, r[3])
   end
 end
 
@@ -343,7 +343,7 @@ local function rightHand(out, g, lever)
   -- Working a lever, the whole hand swings down and back with it.
   lever = lever or 0
   g = pivot(g, V(0, 0.024, 0.15), V(1, 0, 0), lever * 0.55)
-  cap(out, g, V(0.03, 0.015, -0.13), V(0.11, 0.1, -0.5), 0.047, "coat", "arm").grain = folds(5, 1)
+  cap(out, g, V(0.03, 0.015, -0.13), V(0.04, 0.28, -0.36), 0.047, "coat", "arm").grain = folds(5, 1)
   cap(out, g, V(0.028, 0.012, -0.105), V(0.036, 0.02, -0.15), 0.05, "coat", "cuff")
   cap(out, g, V(0.022, 0.004, -0.05), V(0.028, 0.012, -0.11), 0.026, "skin", "hand")
   ell(out, g, V(0.02, -0.004, -0.028), V(0.85, -0.53, 0), V(0.53, 0.85, 0), { 0.015, 0.03, 0.042 }, "skin", "hand")
@@ -361,7 +361,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- The lever-action rifle, in its own space: x right, y down, z forward along the barrel, with its
 -- origin at the wrist where your hand holds it.
-local SIZE = 1.35 -- the guns are drawn a size up, as games do, so they read
+local SIZE = 1.25 -- the guns are drawn a size up, as games do, so they read
 
 -- The way to face a gun held at `at` so that its muzzle (a point in its own space) lands on the view
 -- point (tx, ty): found by nudging the facing until it does.
@@ -374,8 +374,10 @@ local function aimAt(at, muzzle, tx, ty)
   return fwd
 end
 
-local RIFLE_AT = V(0.15, 0.2, 0.38)
-local RIFLE_FWD = aimAt(RIFLE_AT, V(0, -0.024, 0.66), CX + 20, CY + 22)
+-- Where the muzzles end in a 270 px view: a little below and right of the crosshair.
+local MUZZLE = { CX + 24, CY + 28 }
+local RIFLE_AT = V(0.13, 0.2, 0.38)
+local RIFLE_FWD = aimAt(RIFLE_AT, V(0, -0.024, 0.66), MUZZLE[1], MUZZLE[2])
 
 -- p: roll (radians, its right side up towards you), lower (metres) and tip (radians, muzzle up) for
 -- the reload; lever (0 shut to 1 open); case (a spent case flying, 0..1); gate (1 a round at the
@@ -433,7 +435,7 @@ local function rifle(p)
     local tz = ({ 0.022, 0.05, 0.085 })[p.gate]
     -- the forearm drops away down to the right, out of the view
     local wr = place(g, V(0.062, 0.03, 0.01))
-    s[#s + 1] = capsule(add(wr, V(0.01, 0.03, 0.0)), add(wr, V(0.07, 0.4, 0.02)), 0.04 * SIZE, "coat", "arm")
+    s[#s + 1] = capsule(add(wr, V(0.01, 0.03, 0.0)), add(wr, V(0.02, 0.4, 0.0)), 0.04 * SIZE, "coat", "arm")
     s[#s + 1] = capsule(wr, add(wr, V(0.006, 0.03, 0.0)), 0.026 * SIZE, "skin", "hand")
     ell(s, g, V(0.05, 0.008, 0.04), V(1, 0, 0), V(0, 1, 0), { 0.02, 0.027, 0.036 }, "skin", "hand")
     cap(s, g, V(0.045, -0.018, 0.03), V(0.024, -0.006, tz), 0.0095, "skin", "hand")
@@ -447,7 +449,7 @@ local function rifle(p)
     local mx, my = project(place(g, V(0, -0.024, 0.675)))
     local ex, ey = project(place(g, V(0, -0.024, 1.5)))
     local d = math.sqrt((ex - mx) ^ 2 + (ey - my) ^ 2)
-    flash(b, mx, my, (ex - mx) / d, (ey - my) / d, 1.25)
+    flash(b, mx, my, (ex - mx) / d, (ey - my) / d, 1.1)
   end
   return b, { project(place(g, V(0, -0.024, 0.66))) }
 end
@@ -455,8 +457,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- The double-barrelled shotgun, in its own space like the rifle: two barrels side by side on a rib,
 -- a walnut fore-end, a case-hardened action with two hammers, and your hand on the wrist.
-local SHOTGUN_AT = V(0.15, 0.2, 0.38)
-local SHOTGUN_FWD = aimAt(SHOTGUN_AT, V(0, -0.02, 0.62), CX + 20, CY + 22)
+local SHOTGUN_AT = V(0.13, 0.2, 0.38)
+local SHOTGUN_FWD = aimAt(SHOTGUN_AT, V(0, -0.02, 0.62), MUZZLE[1], MUZZLE[2])
 
 -- The mottled colours of case-hardened steel.
 local function mottle(q)
@@ -518,7 +520,7 @@ local function shotgun(p)
       local mx, my = project(place(bg, V(x, -0.02, 0.635)))
       local ex, ey = project(place(bg, V(x, -0.02, 1.5)))
       local d = math.sqrt((ex - mx) ^ 2 + (ey - my) ^ 2)
-      flash(b, mx, my, (ex - mx) / d, (ey - my) / d, 1.1)
+      flash(b, mx, my, (ex - mx) / d, (ey - my) / d, 1)
     end
   end
   return b
@@ -528,7 +530,7 @@ end
 -- The lantern in your left hand: a tin hurricane lantern hanging from its wire bail, the flame burning
 -- in its glass globe behind the guard wires, its cap and its fuel tank lit by the flame. Its own flame
 -- lights it, and a warm glow hangs in the air round it.
-local LANTERN_AT = V(-0.24, 0.2, 0.5)
+local LANTERN_AT = V(-0.285, 0.272, 0.6)
 
 -- A glowing glass globe: an ellipsoid painted by the flame inside it. `flick` (0 or 1) bends the
 -- flame.
@@ -557,7 +559,7 @@ local function lantern(p)
   local s = {}
   -- The forearm, coming up from the bottom left to the fist that holds the bail.
   local wr = place(g, V(-0.028, -0.124, -0.02))
-  s[#s + 1] = capsule(add(wr, V(-0.012, 0.02, -0.02)), add(wr, V(-0.06, 0.3, -0.12)), 0.034, "coat", "arm")
+  s[#s + 1] = capsule(add(wr, V(-0.014, 0.02, -0.02)), add(wr, V(-0.07, 0.3, -0.12)), 0.034, "coat", "arm")
   s[#s].grain = folds(4, 2)
   s[#s + 1] = capsule(add(wr, V(-0.002, 0.004, -0.004)), add(wr, V(-0.012, 0.04, -0.024)), 0.037, "coat", "cuff")
   s[#s + 1] = capsule(wr, add(wr, V(0.012, -0.004, 0.01)), 0.02, "skin", "fist")
@@ -604,7 +606,7 @@ local function throw(p)
   local b
   if p.back then
     -- The fist low on the left, the flare standing out of it, burning.
-    local fist = V(-0.16, 0.13, 0.31)
+    local fist = V(-0.17, 0.15, 0.33)
     local g = pose(fist, V(0.94, 0.34, 0), V(-0.34, 0.94, 0), V(0, 0, 1), 1)
     s[#s + 1] = capsule(add(fist, V(-0.01, 0.02, -0.01)), add(fist, V(-0.16, 0.3, -0.16)), 0.038, "coat", "arm")
     ell(s, g, V(0, 0, 0), V(1, 0, 0), V(0, 1, 0), { 0.027, 0.024, 0.03 }, "skin", "fist")
@@ -623,7 +625,7 @@ local function throw(p)
     blot(b, fx, fy - 2, 2, 3, 0, C.window)
   else
     -- The arm reaching out, the hand open, fingers spread, just let go.
-    local hand = V(-0.13, 0.07, 0.46)
+    local hand = V(-0.14, 0.1, 0.48)
     local g = pose(hand, V(1, 0, 0), V(0, 0.8, -0.6), cross(V(1, 0, 0), V(0, 0.8, -0.6)), 1)
     s[#s + 1] = capsule(add(hand, V(-0.02, 0.03, -0.04)), add(hand, V(-0.12, 0.3, -0.3)), 0.037, "coat", "arm")
     ell(s, g, V(0, 0, 0), V(1, 0, 0), V(0, 1, 0), { 0.03, 0.036, 0.014 }, "skin", "hand")
@@ -640,7 +642,40 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Cropping and writing.
 
--- The bounding box of what's painted on a view-sized canvas, always reaching the bottom of the view.
+-- The crosshair must stay clear at every height the view can be. The game draws at the whole-number
+-- scale nearest 270 px tall (view.js: h = ceil(device height / scale)), so h runs from 225 to 315 at
+-- any scale from 3 up. hud.js anchors each frame to the bottom centre of the view, sways it up to 3 px
+-- sideways as you walk (only ever down, never up), and puts the 7x7 crosshair at floor(w / 2) - 3,
+-- floor(h / 2) - 3. Nothing drawn in any frame may come within 5 px of it: at any of those heights,
+-- either width parity, and any sway. `clear[h]` keeps the nearest gap found at each height (the
+-- empty pixels between a drawn pixel and the crosshair's box, counted square-wise) and whose it was.
+local LOW, HIGH = 225, 315
+local clear = {}
+local function jsRound(x) return math.floor(x + 0.5) end
+local function checkClear(name, b, ox, oy, lo, hi)
+  local near = {}
+  for y = 0, b.h - 1 do
+    for x = 0, b.w - 1 do
+      if b[y][x] and math.abs(ox + x) < 40 and oy + y < -60 then near[#near + 1] = { ox + x, oy + y } end
+    end
+  end
+  for h = lo, hi do
+    local best = clear[h] or { math.huge, "nothing within 40 px" }
+    for parity = 0, 1 do
+      for sway = -6, 6 do
+        local dx = jsRound(parity * 0.5 + sway * 0.5)
+        for _, q in ipairs(near) do
+          local gap = math.floor(math.max(math.abs(q[1] + dx) - 3, math.abs(q[2] + math.ceil(h / 2)) - 3) - 1)
+          if gap < best[1] then best = { gap, name } end
+        end
+      end
+    end
+    clear[h] = best
+  end
+end
+
+-- The bounding box of what's painted on a view-sized canvas, always reaching the bottom of the view,
+-- checked for the crosshair's clearance.
 local function crop(b, name)
   local x0, y0, x1 = VW, VH, -1
   for y = 0, VH - 1 do
@@ -653,10 +688,9 @@ local function crop(b, name)
     end
   end
   assert(x1 >= 0, name .. " is empty")
-  for y = CY - 5, CY + 5 do
-    for x = CX - 5, CX + 5 do assert(not b[y][x], name .. " covers the crosshair at " .. x .. "," .. y) end
-  end
-  return { name, L.crop(b, x0, y0, x1 - x0 + 1, VH - y0), x0 - VW / 2, y0 - VH }
+  local piece = { name, L.crop(b, x0, y0, x1 - x0 + 1, VH - y0), x0 - VW / 2, y0 - VH }
+  checkClear(name, piece[2], piece[3], piece[4], 150, HIGH)
+  return piece
 end
 
 local idle, muzzle = rifle({})
@@ -679,4 +713,17 @@ local pieces = {
   crop(throw({ back = true }), "throw-1"),
   crop(throw({}), "throw-2"),
 }
+for _, h in ipairs({ LOW, 240, 255, 270, HIGH }) do
+  print(string.format("h %d: the nearest drawn pixel is %d px clear of the crosshair (%s)", h, clear[h][1], clear[h][2]))
+end
+local lowest = HIGH + 1
+for h = HIGH, 150, -1 do
+  if clear[h][1] < 5 then break end
+  lowest = h
+end
+print(string.format("clear at every height from %d%s up to %d", lowest, (lowest == 150) and " (the lowest checked)" or "", HIGH))
+for h = LOW, HIGH do
+  assert(clear[h][1] >= 5, string.format("at h %d, %s comes %d px from the crosshair", h, clear[h][2], clear[h][1]))
+end
+for _, pc in ipairs(pieces) do print(string.format("%-18s %3dx%-3d at %4d, %4d", pc[1], pc[2].w, pc[2].h, pc[3], pc[4])) end
 L.writePieces("hands", pieces)
