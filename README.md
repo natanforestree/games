@@ -59,3 +59,18 @@ That writes the editable `art/snake-icon.aseprite` and the `snake/icon.png` the 
   ```
 
   To repaint one world, run `aseprite -b --script-param world=dusk --script art/marrow/scenes.lua`. To review the worlds, `aseprite -b --script art/marrow/tour.lua` writes `art/marrow/preview-tour-<world>.png`, one image per world. Previews aren't committed.
+
+## Last Light
+
+`last-light/` is a first-person survival horror game: you hold a snowy log cabin through one winter night, from dusk to dawn, against pale hungry things that come out of the trees. It's pixel art drawn by a raycaster. The design spec is `docs/superpowers/specs/2026-09-24-last-light-design.md`.
+
+- Tests (Node 22, no dependencies): `cd last-light && npm test`. Bench: `npm run bench` (the target is under 4 ms a frame).
+- Debug: `?debug=fps` shows the frame rate, and `?debug=bot` plays by itself (add `&speed=N` to speed it up). `?wave=N` (1–8) starts at that wave, `?god` means you can't die, and `?seed=N` fixes the night's randomness.
+- Tuning: every number is in `last-light/src/tuning.js`.
+- Art: each asset has a script in `art/last-light/`, and `palette.lua` holds every colour. Rebuild everything from the repo root (it's deterministic: an unchanged script rebuilds its files byte for byte):
+
+  ```sh
+  for s in textures sky sprites hands hud icon; do /Applications/Aseprite.app/Contents/MacOS/aseprite -b --script art/last-light/$s.lua; done
+  ```
+
+  To review the art, `aseprite -b --script art/last-light/style-test.lua` writes `art/last-light/preview-style.png`. Previews aren't committed.
