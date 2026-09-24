@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRenderer } from '../src/render.js';
 import { createGame } from '../src/game.js';
+import { createState } from '../src/sim.js';
 import { fakeCanvas } from './fake-canvas.js';
 
 // createRenderer fits the canvas to the window and makes its stain layers with document.createElement:
@@ -59,4 +60,15 @@ test('cosmetic animation follows simulation ticks, not display frames (the same 
   r.draw(game);
   assert.notDeepEqual(fogX(ctx, assets.worlds.dusk), fog);
   assert.ok(!prompt());
+});
+
+test("a new match's first frame never shows the last match's stains, even drawn before any tick", () => {
+  const { r, ctx } = renderer();
+  const old = { mode: 'intro', rung: 0, state: createState() }; // screen C
+  r.tick(old.state, [{ type: 'kill', id: 1, cause: 'blade', x: 160, y: 150, screen: old.state.screen }]);
+  r.draw(old);
+  assert.ok(ctx.images.some((d) => layers.has(d.img)), 'the kill stained C');
+  ctx.images.length = 0;
+  r.draw({ ...old, state: createState() }); // the next intro's fresh state, drawn before it's ticked
+  assert.ok(!ctx.images.some((d) => layers.has(d.img)), "the old match's stains were drawn");
 });
