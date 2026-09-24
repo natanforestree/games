@@ -37,10 +37,13 @@ for y = 0, H - 1 do
   end
 end
 
--- Stars, sparse, thinning towards the horizon, never two touching.
-for y = 0, 96 do
+-- Stars, sparse, thinning towards the horizon, never two touching. The top CLEAR rows have none: on a
+-- view taller than the panorama the game repeats row 0 upward, and a star there would draw a line
+-- down from the top of the screen. Below them the stars fade in over FADE rows.
+local CLEAR, FADE = 4, 8
+for y = CLEAR, 96 do
   for x = 0, W - 1 do
-    local p = 0.0075 * (1 - y / 100) ^ 2
+    local p = 0.0075 * (1 - y / 100) ^ 2 * math.min(1, (y - CLEAR + 1) / FADE)
     if L.rnd(x, y, 7) < p then
       local clear = true
       for dy = -1, 1 do
@@ -90,6 +93,13 @@ end
 -- Below the trees it's solid black: the forest wall stands in front of this.
 for y = H - 20, H - 1 do
   for xx = 0, W - 1 do sky[y][xx] = C.void end
+end
+
+-- The rows the game repeats upward must be one flat colour, with no stars or dither.
+for y = 0, CLEAR - 1 do
+  for xx = 0, W - 1 do
+    assert(sky[y][xx] == C.night1, string.format("sky row %d at x %d isn't flat night1", y, xx))
+  end
 end
 
 L.checkPalette(sky, P, "sky")
