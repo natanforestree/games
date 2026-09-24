@@ -9,6 +9,9 @@ import { createGame } from './game.js';
 import { loadAssets } from './assets.js';
 import { safeStorage } from './storage.js';
 
+// The module is running, so index.html's "couldn't start" fallback message will never be needed.
+document.getElementById('nostart')?.remove();
+
 const params = new URLSearchParams(location.search);
 const debugCpu = params.get('debug') === 'cpu';
 const speed = debugCpu ? Math.floor(Math.min(50, Math.max(1, Number(params.get('speed')) || 1))) : 1;
@@ -47,6 +50,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 async function boot() {
+  renderer.message('Marrow', 'Loading…');
   try {
     const [assets] = await Promise.all([
       loadAssets(),

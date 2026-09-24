@@ -14,11 +14,22 @@
     canvas { display: block; image-rendering: crisp-edges; image-rendering: pixelated; }
     a.back { position: fixed; top: 8px; left: 10px; color: #6f6452; font: 12px/1 Silkscreen, monospace; text-decoration: none; }
     a.back:hover, a.back:focus { color: #cdbf9f; }
+    .nostart { position: fixed; inset: 0; margin: auto; height: fit-content; padding: 0 16px; text-align: center; color: #ece0c2; font: 12px/1.6 Silkscreen, monospace; }
   </style>
 </head>
 <body>
   <a class="back" href="../">← games</a>
   <canvas id="game" width="320" height="180" aria-label="Marrow: a sword-fighting game for the keyboard"></canvas>
+  <p class="nostart" id="nostart" hidden>Marrow couldn't start. It needs a current browser:<br>Chrome 123, Firefox 138 or Safari 17.2, or newer.</p>
+  <noscript><p class="nostart">Marrow needs JavaScript.</p></noscript>
   <script type="module" src="./src/main.js"></script>
+  <script>
+    // If the game's module never starts (a browser too old for its JSON imports), say so in plain
+    // text. main.js removes this message the moment it runs, so a slow connection only delays it.
+    setTimeout(function () {
+      var m = document.getElementById('nostart');
+      if (m) m.hidden = false;
+    }, 6000);
+  </script>
 </body>
 </html>
