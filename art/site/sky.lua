@@ -49,11 +49,14 @@ for _, phase in ipairs(PHASES) do
   end
 end
 
--- The cloud layers, far to near: far ones small, faint and wispy; near ones bigger and fuller.
+-- The cloud layers, far to near: far ones small, faint and wispy; near ones bigger and fuller. Each puff
+-- sits on a base `low` px above the bottom of its strip, raised by up to `rise` px more. The far layer
+-- keeps to the bottom of its strip, so on the landscape stage (strip at y 8) it passes under the title
+-- (y 12-41) instead of through it.
 local LAYERS = {
-  { puffs = 6, rmin = 2, rmax = 5, alpha = "80", seed = 11 },
-  { puffs = 4, rmin = 4, rmax = 8, alpha = "c0", seed = 12 },
-  { puffs = 3, rmin = 6, rmax = 11, alpha = "e8", seed = 13 },
+  { puffs = 6, rmin = 2, rmax = 5, alpha = "80", seed = 11, low = 2, rise = 3 },
+  { puffs = 4, rmin = 4, rmax = 8, alpha = "c0", seed = 12, low = 4, rise = 16 },
+  { puffs = 3, rmin = 6, rmax = 11, alpha = "e8", seed = 13, low = 4, rise = 16 },
 }
 
 -- One layer's shape, the same in every phase so a crossfade only changes its colours: puffs of
@@ -62,7 +65,7 @@ local function cloudShape(layer)
   local m = L.buffer(CLOUD_W, CLOUD_H)
   for i = 0, layer.puffs - 1 do
     local cx = (i + 0.2 + L.rnd(i, 0, layer.seed) * 0.6) * CLOUD_W / layer.puffs
-    local base = CLOUD_H - 4 - math.floor(L.rnd(i, 1, layer.seed) * (CLOUD_H / 3))
+    local base = CLOUD_H - layer.low - math.floor(L.rnd(i, 1, layer.seed) * layer.rise)
     local span = layer.rmax * (3 + L.rnd(i, 2, layer.seed) * 3)
     local n = 5 + math.floor(L.rnd(i, 3, layer.seed) * 4)
     for k = 0, n - 1 do
