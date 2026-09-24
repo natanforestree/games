@@ -4,7 +4,8 @@
 //   gaunt    chases, winds up, swipes
 //   leaper   closes in, circles at the edge of your light, crouches with a shriek, leaps in a straight
 //            line (sidestep it or shoot it mid-air), lands, and goes round again. Where it can't see
-//            you (you're in the cabin) it chases and bites like a crawler.
+//            you (you're in the cabin) it chases and bites like a crawler. If a wall stops its leap
+//            short of you, it comes straight in instead of circling, and pounces once it's close.
 //   mother   a slow, huge gaunt that also gives birth to crawlers (within the wave's cap)
 // All of them head straight for you when they can see you nearby, and follow the flow field when they
 // can't. Flare light halves their speed. They push each other apart, and never into you.
@@ -25,7 +26,8 @@ export function createCreatures(n = MAX_CREATURES) {
   return Array.from({ length: n }, (_, id) => ({
     id, alive: false, dying: 0, kind: 0, x: 0, y: 0, px: 0, py: 0, radius: 0, hp: 0,
     heading: 0, moving: false, walked: 0, mode: 'chase', t: 0, attackT: 0, flinch: 0, hurtT: 0,
-    circleDir: 1, circleT: 0, leapX: 0, leapY: 0, leapHit: false, lift: 0, birthT: 0, struck: 0,
+    circleDir: 1, circleT: 0, unseen: 0, rush: false, leapX: 0, leapY: 0, leapHit: false, lift: 0, birthT: 0,
+    struck: 0,
   }));
 }
 
@@ -56,6 +58,8 @@ export function spawnCreature(state, kind, x, y) {
   c.hurtT = 0;
   c.circleDir = nextRandom(state.rng) < 0.5 ? -1 : 1;
   c.circleT = 0;
+  c.unseen = 0;
+  c.rush = false;
   c.leapHit = false;
   c.lift = 0;
   c.birthT = t.birthEvery ?? 0;
@@ -148,16 +152,21 @@ function update(state, c, dt) {
   }
 
   if (c.kind === LEAPER) {
+    // It gives up a circle only after a moment out of sight, and a circle broken off at a doorway or a
+    // corner resumes with the time it had left, so a leaper at the edge of sight still leaps.
     if (c.mode === 'chase' || c.mode === 'circle') {
-      if (!sees) {
+      c.unseen = sees ? 0 : c.unseen + dt;
+      if (c.mode === 'circle' && c.unseen >= t.lostSight) {
         c.mode = 'chase';
-      } else if (c.mode === 'chase' && d <= t.circleAt + 0.5) {
+      } else if (c.mode === 'chase' && sees && !c.rush && d <= t.circleAt + 0.5) {
         c.mode = 'circle';
-        c.circleT = randomBetween(state.rng, t.circleMin, t.circleMax);
+        if (c.circleT <= 0) c.circleT = randomBetween(state.rng, t.circleMin, t.circleMax);
       }
     }
     switch (c.mode) {
       case 'chase':
+        // Coming straight in after a wall cut its leap short: it pounces once it sees you close.
+        if (c.rush && sees && d < t.closeLeap) return crouch(state, c, t, dx, dy);
         if (!sees && touch <= t.reach) return bite(state, c, t, dt, dx, dy);
         c.attackT = t.interval;
         heading(state, c, sees);
@@ -165,13 +174,7 @@ function update(state, c, dt) {
         return;
       case 'circle': {
         c.circleT -= dt;
-        if (c.circleT <= 0 || d < t.closeLeap) {
-          c.mode = 'crouch';
-          c.t = t.crouch;
-          c.heading = Math.atan2(dy, dx);
-          emit(state, 'shriek', c.x, c.y);
-          return;
-        }
+        if (c.circleT <= 0 || d < t.closeLeap) return crouch(state, c, t, dx, dy);
         const ux = dx / d, uy = dy / d;
         const radial = Math.max(-1, Math.min(1, d - t.circleAt));
         let vx = -uy * c.circleDir + ux * radial, vy = ux * c.circleDir + uy * radial;
@@ -206,6 +209,9 @@ function update(state, c, dt) {
           c.mode = 'land';
           c.t = t.land;
           c.lift = 0;
+          // A wall stopped it with you still ahead (it leapt at a doorway's edge, or at where it last
+          // saw you): no clear line from here, so next it comes straight in rather than circling.
+          c.rush = wall && !c.leapHit && (p.x - c.x) * c.leapX + (p.y - c.y) * c.leapY > 0;
         }
         return;
       }
@@ -214,6 +220,7 @@ function update(state, c, dt) {
         if (c.t <= 0) {
           c.mode = 'chase';
           c.attackT = t.interval;
+          c.circleT = 0; // the next circle is a fresh one
         }
         return;
     }
@@ -242,7 +249,8 @@ function update(state, c, dt) {
     return;
   }
 
-  // Gaunt and Mother: chase, wind up, strike.
+  // Gaunt and Mother: chase, wind up, strike. Their reach is longer than a wall is thick, so both the
+  // wind-up and the strike need sight of you; without it they path round, in by the doorway.
   if (c.attackT > 0) c.attackT -= dt;
   if (c.mode === 'windup') {
     c.heading = Math.atan2(dy, dx);
@@ -250,11 +258,11 @@ function update(state, c, dt) {
     if (c.t <= 0) {
       c.mode = 'chase';
       c.attackT = t.interval;
-      if (touch <= t.reach + 0.2) strike(state, c, t.damage);
+      if (sees && touch <= t.reach + 0.2) strike(state, c, t.damage);
     }
     return;
   }
-  if (touch <= t.reach) {
+  if (sees && touch <= t.reach) {
     if (c.attackT <= 0) {
       c.mode = 'windup';
       c.t = t.windup;
@@ -265,6 +273,14 @@ function update(state, c, dt) {
   }
   heading(state, c, sees);
   walk(state, c, dir.x * t.speed * slow, dir.y * t.speed * slow, dt);
+}
+
+// A leaper crouches with a shriek, facing you, before it leaps.
+function crouch(state, c, t, dx, dy) {
+  c.mode = 'crouch';
+  c.t = t.crouch;
+  c.heading = Math.atan2(dy, dx);
+  emit(state, 'shriek', c.x, c.y);
 }
 
 // Crawlers (and leapers that can't see you) bite on a timer while they're touching you.

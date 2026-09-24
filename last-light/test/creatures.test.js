@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnCreature, damageCreature, aliveCount, CRAWLER, GAUNT, LEAPER, MOTHER } from '../src/creatures.js';
 import { CREATURES, DT, FLARE } from '../src/tuning.js';
+import { step } from '../src/sim.js';
+import { canSee } from '../src/raycast.js';
+import { isRoofed } from '../src/map.js';
 import { quietState, run, runCollecting, intents } from './helpers.js';
 
 const types = (events) => events.map((e) => e.type);
@@ -55,6 +58,63 @@ test('a leaper circles, shrieks, and leaps in a straight line: sidestep it and i
   }
   assert.ok(leapt && !hurt, 'the sidestep dodges the pounce');
   assert.ok(c.alive);
+});
+
+// Seconds until a lone creature of `kind`, from trail `trail` (0-5), first hurts you standing still at
+// (px, py) in god mode, or -1 if it hasn't within `limit`.
+function firstHurt(kind, trail, px, py, limit) {
+  const s = quietState({ seed: 1 + trail, god: true });
+  s.night.wave = 7;
+  s.player.x = s.player.px = px;
+  s.player.y = s.player.py = py;
+  const c = spawnCreature(s, kind, s.map.spawns[trail].x, s.map.spawns[trail].y);
+  c.birthT = Infinity;
+  const still = intents();
+  for (let i = 0; i < limit / DT; i++) {
+    step(s, still);
+    for (let k = 0; k < s.eventCount; k++) if (s.events[k].type === 'hurt') return i * DT;
+  }
+  return -1;
+}
+
+test('a leaper from any trail gets to you, out on the porch or in by the stove', () => {
+  // At a doorway or a corner it keeps losing sight of you; it must still crouch and leap, or come in
+  // and bite, rather than stall at the edge of sight.
+  const missed = [];
+  for (const [px, py, where] of [[19.5, 20.5, 'on the porch'], [19.5, 15.5, 'by the stove']]) {
+    for (let trail = 0; trail < 6; trail++) {
+      if (firstHurt(LEAPER, trail, px, py, 30) < 0) missed.push(`trail ${trail + 1}, ${where}`);
+    }
+  }
+  assert.deepEqual(missed, [], 'these leapers never hurt you in 30 s');
+});
+
+test('the Mother and the gaunts never strike through a wall: they come round to you', () => {
+  // You inside against the cabin's north wall with the Mother just outside it (west of the stove,
+  // which would push you out of her reach), and you in a corner with a gaunt round it.
+  const cases = [
+    [MOTHER, 17.5, 14.3, 17.5, 12.5, 'the Mother through the cabin wall'],
+    [GAUNT, 29.5, 11.5, 28.5, 12.6, 'a gaunt round a corner'],
+  ];
+  for (const [kind, px, py, cx, cy, what] of cases) {
+    const s = quietState({ god: true });
+    s.night.wave = 7;
+    s.player.x = s.player.px = px;
+    s.player.y = s.player.py = py;
+    const c = spawnCreature(s, kind, cx, cy);
+    c.birthT = Infinity;
+    let hurts = 0;
+    for (let i = 0; i < 25 / DT; i++) {
+      step(s, intents());
+      for (let k = 0; k < s.eventCount; k++) {
+        if (s.events[k].type !== 'hurt') continue;
+        hurts++;
+        assert.ok(canSee(s.map, c.x, c.y, s.player.x, s.player.y), `${what}: hurt you unseen from ${c.x.toFixed(2)},${c.y.toFixed(2)}`);
+        if (kind === MOTHER) assert.ok(isRoofed(s.map, Math.floor(c.x), Math.floor(c.y)), 'the Mother hurt you from outside the cabin');
+      }
+    }
+    assert.ok(hurts > 0, `${what}: it never came round to you`);
+  }
 });
 
 test('the Mother gives birth to crawlers on her timer', () => {

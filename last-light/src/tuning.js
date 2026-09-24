@@ -62,6 +62,7 @@ export const CREATURES = {
     radius: 0.25, hit: 0.3, health: 20, speed: 3.4, reach: 0.35, damage: 8, interval: 0.8, flinch: 0.12,
     circleAt: 5, circleSpeed: 3.0, circleMin: 2, circleMax: 4, crouch: 0.5, leapSpeed: 9, leapTime: 1.0,
     pounce: 20, land: 0.6, closeLeap: 2,
+    lostSight: 0.5, // seconds out of sight before a circling leaper gives up and chases again
   },
   mother: {
     radius: 0.45, hit: 0.7, health: 500, speed: 1.3, reach: 1.4, windup: 0.6, damage: 40, interval: 2, flinch: 0,
