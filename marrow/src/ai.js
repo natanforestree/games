@@ -67,13 +67,15 @@ export function createAI(id, personality, seed = 1) {
   return {
     id, personality, p, rng: { s: seed >>> 0 }, seen: [], last: { ...NO_INPUT },
     tactic: p.tactics[0], tacticT: 0, calmT: 0, rushStance: 0, walkT: 0,
-    stuckT: 0, lastX: null, backoffT: 0, dodgeFor: null, dodging: false, drawing: false,
+    stuckT: 0, lastX: null, backoffT: 0, dodgeFor: null, dodging: false, drawTick: null,
   };
 }
 
 export function aiIntent(ai, state) {
   const me = state.fighters[ai.id];
   const seen = perceive(ai, state);
+  // every kill ends a standoff for both CPUs, the one that died included (dead, it doesn't think)
+  ai.calmT = state.events.some((e) => e.type === 'kill') ? 0 : ai.calmT + 1;
   const out = { ...NO_INPUT };
   if (isActive(me) && (state.phase === 'play' || state.phase === 'maw')) think(ai, state, me, seen, out);
   ai.last = out;
@@ -115,7 +117,6 @@ function think(ai, state, me, seen, out) {
     ai.tacticT = Math.floor(rand() * TACTIC_JITTER_TICKS);
     ai.tactic = ai.p.tactics[Math.floor(rand() * ai.p.tactics.length)];
   }
-  ai.calmT = state.events.some((e) => e.type === 'kill') ? 0 : ai.calmT + 1;
   const oppHere = seen.active && isActive(state.fighters[1 - ai.id]);
   const pastThem = oppHere && Math.sign(seen.x - me.x) === -me.dir && Math.abs(seen.x - me.x) > PAST_MARGIN;
   if (state.arrow === ai.id && (!oppHere || pastThem)) {
@@ -244,7 +245,7 @@ function wait(ai, state, me, seen, out, rand) {
     rush(ai, state, me, seen, out, rand);
     return;
   }
-  if (drawIn(ai, me, seen, out, rand)) return;
+  if (drawIn(ai, state, me, seen, out, rand)) return;
   setStanceTo(ai, me, seen.stance, out); // match their height to block
   const engageAt = reachOf(me.stance) + reachOf(seen.stance) - ENGAGE_CROSS;
   if (me.stance !== seen.stance) {
@@ -265,19 +266,22 @@ function wait(ai, state, me, seen, out, rand) {
 
 // A draw disarm (the Waiter's): against a low or high blade held still on the same floor, from out of
 // reach, now and then match it, run in and let go where stopping plants the blade level with theirs,
-// DRAW_CROSS across it and short of their reach to the body. Letting go ends the hunt.
-function drawIn(ai, me, seen, out, rand) {
+// DRAW_CROSS across it and short of their reach to the body. A hunt goes on only from one tick to the
+// next (ai.drawTick): letting go, or a tick spent on anything else, ends it.
+function drawIn(ai, state, me, seen, out, rand) {
   if (!ai.p.drawChance) return false;
   const d = dist(me, seen), drawAt = 2 * reachOf(seen.stance) - DRAW_CROSS;
   const still = seen.state === 'stand' && ai.seen[1]?.x === seen.x; // not moving: the next snapshot has them in the same place
   const target = still && seen.stance !== 1 && seen.y === me.y;
   const moving = me.state === 'stand' || me.state === 'run';
-  if (!ai.drawing) ai.drawing = target && moving && d >= drawAt + DRAW_RUN_UP && rand() < ai.p.drawChance;
-  else if (!target || !moving) ai.drawing = false;
-  if (!ai.drawing) return false;
+  const hunting = ai.drawTick === state.tick - 1;
+  if (!target || !moving) return false;
+  if (!hunting && !(d >= drawAt + DRAW_RUN_UP && rand() < ai.p.drawChance)) return false;
   setStanceTo(ai, me, seen.stance, out);
-  if (d <= drawAt) ai.drawing = false;
-  else hold(out, toward(me, seen));
+  if (d <= drawAt) return true; // let go: stopping plants the blade across theirs
+  // Down while running is a roll (into their low blade), so run in only once the stances match
+  if (me.state !== 'run' || me.stance === seen.stance) hold(out, toward(me, seen));
+  ai.drawTick = state.tick;
   return true;
 }
 

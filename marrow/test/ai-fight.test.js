@@ -6,6 +6,7 @@ import * as P from '../src/physics.js';
 import { isActive, setStance } from '../src/fighter.js';
 import { edgesOpen } from '../src/match.js';
 import { createAI, aiIntent, LADDER } from '../src/ai.js';
+import { duel, NONE } from './helpers.js';
 
 function play(p0, p1, seed, maxTicks = 216000, each = () => {}) {
   const s = createState();
@@ -55,11 +56,12 @@ test('the Waiter hunts for draw disarms: it runs in and stops with its blade acr
     const ai = createAI(1, 'waiter', seed);
     for (let i = 0; i < 600; i++) {
       step(s, [undefined, aiIntent(ai, s)]);
-      if (s.events.some((e) => e.type === 'disarm' && e.kind === 'draw' && e.by === 1)) return true;
+      // the stop itself draws (drawT 0), not a walk-in during the draw window afterwards
+      if (s.events.some((e) => e.type === 'disarm' && e.kind === 'draw' && e.by === 1)) return s.fighters[1].drawT === 0;
     }
     return false;
   };
-  assert.ok([1, 2, 3, 4, 5, 6].some(drew), 'no draw disarm in 10 s for any of the seeds');
+  assert.ok([1, 2, 3, 4, 5, 6].some(drew), 'no draw disarm from a stop in 10 s for any of the seeds');
 });
 
 test('a standoff across a wall ends: after 15 s without a kill, a CPU goes over it', () => {
@@ -72,4 +74,15 @@ test('a standoff across a wall ends: after 15 s without a kill, a CPU goes over 
     killed = s.events.some((e) => e.type === 'kill');
   }
   assert.ok(killed, `no kill in 30 s; the fighters are at ${s.fighters.map((f) => `${f.x.toFixed(1)},${f.y}`).join(' and ')}`);
+});
+
+test("a kill resets both CPUs' calm timers, the dead one's too", () => {
+  const s = duel({ x0: 100, x1: 120, stance0: 0 }); // the player's low blade already reaches the CPU's body
+  const ai = createAI(1, 'waiter', 1);
+  ai.calmT = 5000; // deep into a standoff
+  step(s, [NONE, aiIntent(ai, s)]);
+  assert.equal(s.fighters[1].state, 'dead');
+  const killedAt = s.tick;
+  while (!isActive(s.fighters[1])) step(s, [NONE, aiIntent(ai, s)]);
+  assert.ok(ai.calmT <= s.tick - killedAt, `calmT ${ai.calmT} after respawning, ${s.tick - killedAt} ticks after the kill`);
 });
