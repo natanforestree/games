@@ -1,7 +1,7 @@
 # Games page: floating islands
 
 **Date:** 2026-09-23
-**Status:** Design, awaiting Nathan's review
+**Status:** Approved by Nathan (2026-09-23). The plan is `docs/superpowers/plans/2026-09-23-games-islands.md`.
 
 ## What this is
 
@@ -19,7 +19,7 @@ It should be fun and artful, in the same spirit as Nathan's friend's pixel-art "
 
 - The page loads to a complete, animated scene in any current browser on desktop and phone, with no console errors.
 - Both current games, Snake and Marrow, appear as islands, each recognisably in its own game's style. Hovering or focusing an island shows its name, a one-line description and its controls. Clicking or pressing Enter plays the game.
-- Adding a game means writing one island script, adding one entry to a data file and rebuilding the art. Nothing else is repainted.
+- Adding a game means adding its link to the page's list, writing one island script, adding one entry to a data file and rebuilding the art. Nothing else is repainted.
 - The page is keyboard- and screen-reader-usable. It honours "reduced motion". It still lists the games as plain links if the scene can't run.
 - All art comes from Lua scripts run through Aseprite, and the rebuild reproduces the committed files byte for byte. There's no build step and there are no dependencies, as with the rest of the site.
 
@@ -56,7 +56,7 @@ It should be fun and artful, in the same spirit as Nathan's friend's pixel-art "
 
 ## Layout
 
-- The scene is drawn at a small internal resolution, **384×216 in landscape and 216×384 in portrait**, and scaled up by the largest whole number that fits (1920×1080 is exactly 5×), with crisp pixels, as Marrow does. Any leftover space around the scene is filled with the sky's edge colour.
+- The scene is drawn at a small internal resolution, **384×216 in landscape and 216×384 in portrait**, and scaled up by the largest whole number that fits (1920×1080 is exactly 5×), with crisp pixels, as Marrow does. The canvas covers the whole window. The islands and title sit on a stage centred in it. The sky tiles sideways past the stage, and carries on in its top and bottom colours above and below it, so there are no bars.
 - **Two layouts:**
   - **Landscape**, for desktop and landscape phones: the islands are spread across a wide sky with the title top-left.
   - **Portrait**, for phones: the islands are stacked vertically with the title on top.
@@ -67,13 +67,17 @@ It should be fun and artful, in the same spirit as Nathan's friend's pixel-art "
 - **Page.** The root `index.html` stays the entry point. It loads one ES module, `site/main.js`, with no build step.
 - **Rendering.** A `<canvas>` draws the sky, clouds, islands and signs at the internal resolution, scaled by a whole number.
 - **Interaction.** It uses **real `<a>` links**, one per game, positioned invisibly over each island's hit area. That keeps keyboard focus, screen readers, hover, middle-click and "open in new tab" all working naturally. The canvas reads which link is hovered or focused, and lifts and signs that island.
-- **Data.** `site/games.json` lists each game with these fields:
-  - `id`, `name`, `href`
-  - `blurb`, `controls`
-  - the island sprite and its animation data
-  - its position in each layout
+- **Words and data.**
+  - The page's list of links in `index.html` holds each game's name, link, blurb and controls. It's the plain list without JavaScript, and the words on the sign with it, so the words live in one place.
+  - `site/games.json` holds the rest, keyed by the same id: the island's art (whose frame data the art script writes beside its picture), the island's position in each layout, and its bob.
+  - A test checks that the two agree.
 - **Art.**
-  - Lua scripts in `art/site/` write the editable `.aseprite` files to `art/site/`, and PNG plus JSON to `site/assets/`: sky palettes, clouds, stars, each island's animation frames and the sign frame.
+  - Lua scripts in `art/site/` write the editable `.aseprite` files to `art/site/`, and PNG plus JSON to `site/assets/`. They make:
+    - a pre-painted, dithered sky for each phase and stage shape;
+    - the clouds;
+    - the moon, sun, birds and stars;
+    - each island's animation frames, with its hover glow;
+    - the sign frame.
   - One rebuild loop regenerates everything, and must be deterministic.
   - The site art gets its own small helper library, so it doesn't depend on Marrow's art scripts.
 - **Fallbacks.**
@@ -84,9 +88,10 @@ It should be fun and artful, in the same spirit as Nathan's friend's pixel-art "
 
 ## Adding a game later
 
-1. Write `art/site/island-<id>.lua`, borrowing colours or motifs from the game's own art.
-2. Add the game's entry, with its positions, to `site/games.json`.
-3. Rebuild the art and commit.
+1. Add the game's link, with its blurb and controls, to the list in `index.html`.
+2. Write `art/site/island-<id>.lua`, borrowing colours or motifs from the game's own art.
+3. Add the game's entry, with its positions, to `site/games.json`.
+4. Rebuild the art, run the tests, and commit.
 
 The README's "To add a game" section is updated to say this.
 
