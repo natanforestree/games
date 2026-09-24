@@ -21,6 +21,26 @@ test('the mouse wins over a tapped island, which wins over keyboard focus', () =
   assert.equal(activeIsland({ hovered: null, armed: null, focused: null }), null);
 });
 
+test('active(): a focused link only counts when :focus-visible says so', () => {
+  const doc = fakeDoc(['snake']);
+  const [a] = doc.anchors;
+  const links = createLinks(doc, { addEventListener() {} });
+  doc.activeElement = a;
+  a.matches = () => true;
+  assert.equal(links.active(), 'snake');
+  a.matches = () => false;
+  assert.equal(links.active(), null);
+});
+
+test('active(): a :focus-visible that throws (older Safari, Chrome and Firefox) is treated as visible', () => {
+  const doc = fakeDoc(['snake']);
+  const [a] = doc.anchors;
+  const links = createLinks(doc, { addEventListener() {} });
+  doc.activeElement = a;
+  a.matches = () => { throw new SyntaxError("':focus-visible' is not a valid selector"); };
+  assert.equal(links.active(), 'snake');
+});
+
 test("reset() clears place()'s inline positioning, so a failed scene doesn't leave the plain list with island-sized gaps", () => {
   const doc = fakeDoc(['snake', 'marrow']);
   const links = createLinks(doc, { addEventListener() {} });

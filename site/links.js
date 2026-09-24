@@ -54,8 +54,16 @@ export function createLinks(doc, win) {
     active() {
       const f = doc.activeElement;
       const id = f?.dataset?.game;
-      const focused = id && byId.get(id) === f && f.matches(':focus-visible') ? id : null;
-      return activeIsland({ hovered, armed, focused });
+      if (!id || byId.get(id) !== f) return activeIsland({ hovered, armed, focused: null });
+      let visible;
+      try {
+        visible = f.matches(':focus-visible');
+      } catch {
+        // :focus-visible throws a SyntaxError in Safari 14.0-15.3, Chrome 85 and Firefox 79-84: assume
+        // it applies, so keyboard users on those browsers still get the sign.
+        visible = true;
+      }
+      return activeIsland({ hovered, armed, focused: visible ? id : null });
     },
     // Lays each game's link over its island's hit box.
     place(islands, view) {
