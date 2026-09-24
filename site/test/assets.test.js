@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { PHASES } from '../sky.js';
+import { SIGN } from '../sign.js';
 import { readJson, pngSize, siteFile } from './helpers.js';
 
 const HEX = /^#[0-9a-f]{6}$/;
@@ -44,4 +45,15 @@ test('all the site art together stays under 300 KB', () => {
   const dir = siteFile('assets/');
   const total = readdirSync(dir).reduce((sum, f) => sum + statSync(new URL(f, dir)).size, 0);
   assert.ok(total < 300_000, `site/assets is ${total} bytes`);
+});
+
+test('the sign art has its 9-slice, rope and text colours, and the words clear its frame', () => {
+  const sign = readJson('assets/sign.json');
+  assert.deepEqual(sign.size, [16, 16]);
+  assert.equal(sign.slice, 5);
+  assert.deepEqual(sign.rope, [16, 0, 1, 4]);
+  assert.match(sign.fill, HEX);
+  for (const k of ['name', 'blurb', 'controls']) assert.match(sign.text[k], HEX, k);
+  assert.deepEqual(pngSize('assets/sign.png'), [17, 16]);
+  assert.ok(SIGN.pad > sign.slice && SIGN.min >= 2 * sign.slice);
 });
