@@ -83,6 +83,7 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
     if (e.metaKey || e.ctrlKey) return;
     const action = actionOf.get(e.code);
     if (!action) return;
+    if (!input.locked && action !== 'mute') return; // unlocked: the page (title, pause menu) gets its own keys
     e.preventDefault();
     if (e.repeat || down.has(e.code)) return;
     down.add(e.code);

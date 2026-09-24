@@ -8,7 +8,11 @@ function fakeTarget() {
   const ls = {};
   return {
     addEventListener: (t, f) => (ls[t] ??= []).push(f),
-    fire: (t, e = {}) => (ls[t] ?? []).forEach((f) => f({ preventDefault() {}, ...e })),
+    fire: (t, e = {}) => {
+      const evt = { prevented: false, preventDefault() { evt.prevented = true; }, ...e };
+      (ls[t] ?? []).forEach((f) => f(evt));
+      return evt;
+    },
   };
 }
 
@@ -134,6 +138,21 @@ test('unlocked, a click is not a shot', () => {
   doc.fire('pointerlockchange');
   win.fire('mousedown', { button: 0 });
   assert.equal(input.sample().fire, false);
+});
+
+test('unlocked, movement keys reach the page (not default-prevented, not latched); M still mutes; locking lets them move you again', () => {
+  const { win, doc, input } = setup();
+  doc.pointerLockElement = null;
+  doc.fire('pointerlockchange');
+  const evt = win.fire('keydown', { code: 'ArrowLeft' });
+  assert.equal(evt.prevented, false);
+  assert.equal(input.sample().strafe, 0);
+  win.fire('keydown', { code: 'KeyM' });
+  assert.equal(input.takeUI().mute, 1);
+  doc.pointerLockElement = input.element;
+  doc.fire('pointerlockchange');
+  win.fire('keydown', { code: 'ArrowLeft' });
+  assert.equal(input.sample().strafe, -1);
 });
 
 test('releaseAll also forgets presses not yet taken', () => {
