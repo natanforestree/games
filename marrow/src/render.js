@@ -2,7 +2,8 @@
 import { VIEW_W, VIEW_H } from './tuning.js';
 import { drawPlaceholder, drawHitboxes } from './draw-debug.js';
 import { drawFighters, drawSwords } from './draw-fighters.js';
-import { drawWorld } from './draw-world.js';
+import { drawWorld, drawMaw } from './draw-world.js';
+import { drawHUD } from './draw-ui.js';
 import { createEffects } from './effects.js';
 import { worldFor } from './assets.js';
 
@@ -19,6 +20,14 @@ export function createRenderer(canvas, { debug = false } = {}) {
   fit();
   const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
   let assets = null, fx = null, frame = 0, lastState = null;
+  // A new state object is a new match: clean the floors before it's first ticked or drawn,
+  // so the old match's stains never flash on the new match's first frame.
+  const freshMatch = (state) => {
+    if (state !== lastState) {
+      fx.reset();
+      lastState = state;
+    }
+  };
   return {
     setAssets(a) {
       assets = a;
@@ -27,10 +36,7 @@ export function createRenderer(canvas, { debug = false } = {}) {
     // Called once per simulation tick with that tick's events.
     tick(state, events) {
       if (!fx) return;
-      if (state !== lastState) {
-        fx.reset(); // a new match: clean floors
-        lastState = state;
-      }
+      freshMatch(state);
       fx.onEvents(events);
       fx.update();
     },
@@ -54,12 +60,16 @@ export function createRenderer(canvas, { debug = false } = {}) {
         drawPlaceholder(ctx, state);
         return;
       }
-      drawWorld(ctx, state, worldFor(assets, rung), fx, frame);
+      freshMatch(state);
+      const world = worldFor(assets, rung);
+      drawWorld(ctx, state, world, fx, frame);
       if (!state.slide) {
         drawSwords(ctx, state, assets);
         drawFighters(ctx, state, assets);
         fx.drawDrops(ctx, state.screen, 0);
+        drawMaw(ctx, state, world);
       }
+      drawHUD(ctx, state, assets, world, frame);
       if (debug) drawHitboxes(ctx, state);
     },
   };

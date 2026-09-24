@@ -11,9 +11,12 @@ const FAR_PARALLAX = 0.25;
 const FOG_PARALLAX = 0.5;
 const FOG_DRIFT = 0.05; // px per frame
 
+// The victory screens' floor, where the Maw sheet's own floor line (maw.json's `floor`) lands.
+const VICTORY_FLOOR_Y = 150;
+
 const smooth = (t) => t * t * (3 - 2 * t);
 
-// world: one entry of assets.worlds, { far, fog, scenes, colors } (Task 17 adds maw).
+// world: one entry of assets.worlds, { far, fog, scenes, colors, maw }.
 export function drawWorld(ctx, state, world, fx, tick) {
   const slide = state.slide;
   const k = slide ? smooth(slide.t / T.SCREEN_SLIDE_TICKS) : 0;
@@ -78,4 +81,16 @@ function details(ctx, screen, anchors, colors, ox, tick) {
     ctx.fillRect(Math.round(ox + sx), Math.round(sy + Math.sin(tick * 0.02 + i) * 3), 1, 1);
   }
   ctx.globalAlpha = 1;
+}
+
+// The Maw bursts from the floor under the winner, swallows them, and sinks back. It's drawn from the
+// current world's sheet; maw.json's floor line goes on the victory screen's floor, y = 150.
+export function drawMaw(ctx, state, world) {
+  const m = state.maw;
+  if (!m || m.x === null) return;
+  const { data, image } = world.maw;
+  const k = Math.floor((m.t - T.MAW_DELAY_TICKS) / data.rate);
+  if (k < 0 || k >= data.frames) return;
+  const [fw, fh] = data.frame;
+  ctx.drawImage(image, k * fw, 0, fw, fh, Math.round(m.x - fw / 2), VICTORY_FLOOR_Y - data.floor, fw, fh);
 }

@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import maw from '../assets/maw.json' with { type: 'json' };
+import { T } from '../src/tuning.js';
 import { createState } from '../src/sim.js';
-import { drawWorld } from '../src/draw-world.js';
+import { drawWorld, drawMaw } from '../src/draw-world.js';
 import { fakeContext } from './fake-canvas.js';
 
 const colors = {
@@ -39,4 +41,14 @@ test("each scene's living details are drawn in the world's colors, mirrored on '
     assert.ok(spores.every((r) => r.alpha === colors.sporeAlpha));
     assert.equal(ctx.globalAlpha, 1);
   }
+});
+
+test("the Maw is drawn from the current world's own sheet, centered on the winner, its floor line on the floor", () => {
+  const world = { ...fakeWorld(), maw: { data: maw, image: { sheet: 'this world' } } };
+  const s = createState({ screen: 6 });
+  s.maw = { t: T.MAW_DELAY_TICKS + 2 * maw.rate, x: 200 }; // the third frame
+  const ctx = fakeContext();
+  drawMaw(ctx, s, world);
+  const [fw, fh] = maw.frame;
+  assert.deepEqual(ctx.images, [{ img: world.maw.image, args: [2 * fw, 0, fw, fh, 200 - fw / 2, 150 - maw.floor, fw, fh] }]);
 });

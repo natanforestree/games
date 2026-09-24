@@ -54,3 +54,16 @@ test('each ladder rung is drawn in its own world', async () => {
   assert.equal(worldFor(assets, 1), assets.worlds.dusk);
   assert.equal(worldFor(assets, 2), assets.worlds.abyss);
 });
+
+test('each world has its own Maw sheet with the shared maw.json, and the GO arrow gets a cyan twin', async () => {
+  const assets = await loadAssets(undefined, fakeIO);
+  for (const name of assets.worldOrder) {
+    const { maw } = assets.worlds[name];
+    assert.match(maw.image.href, new RegExp(`/assets/${name}/maw\\.png$`));
+    assert.deepEqual(maw.data, { floor: 110, frame: [160, 120], frames: 12, rate: 10 });
+  }
+  const [amber, cyan] = assets.arrow.sheets;
+  assert.match(amber.href, /\/marrow\/assets\/arrow\.png$/);
+  assert.deepEqual(cyan, { swapOf: amber.href, from: palette.amber, to: palette.cyan });
+  assert.deepEqual(assets.arrow.data, { frame: [24, 12], frames: 4 });
+});

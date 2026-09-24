@@ -11,6 +11,15 @@ export async function loadAssets(base = new URL('../assets/', import.meta.url), 
   assets.worldOrder = (await json(at('worlds.json'))).order;
   const worlds = await Promise.all(assets.worldOrder.map((name) => loadWorld(name, at, image, json)));
   assets.worlds = Object.fromEntries(assets.worldOrder.map((name, i) => [name, worlds[i]]));
+  // The Maw: one sheet per world, sharing maw.json. The GO arrow, like the fighter, gets a cyan twin.
+  const [mawData, arrowData, arrowImage, ...mawImages] = await Promise.all([
+    json(at('maw.json')), json(at('arrow.json')), image(at('arrow.png')),
+    ...assets.worldOrder.map((name) => image(at(`${name}/maw.png`))),
+  ]);
+  assets.worldOrder.forEach((name, i) => {
+    assets.worlds[name].maw = { data: mawData, image: mawImages[i] };
+  });
+  assets.arrow = { data: arrowData, sheets: pair(arrowImage) };
   return assets;
 }
 
