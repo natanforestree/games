@@ -4,93 +4,65 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Games</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <script>
+    // With JavaScript, the plain list waits unseen while the scene starts (site/main.js). If the scene
+    // hasn't started within 4 seconds (a browser too old for it, or a script that never arrived), the
+    // list comes back. Once main.js is running it brings the list back itself if anything fails.
+    document.documentElement.classList.add('js');
+    setTimeout(function () {
+      var root = document.documentElement.classList;
+      if (!root.contains('booting') && !root.contains('scene')) root.remove('js');
+    }, 4000);
+  </script>
+  <script nomodule>document.documentElement.classList.remove('js');</script>
   <style>
-    :root {
-      --bg: #fafaf9;
-      --card: #ffffff;
-      --text: #1c1917;
-      --muted: #78716c;
-      --border: #e7e5e4;
-      --accent: #2563eb;
-      --thumb: #eef4e2;
-    }
+    /* The plain page: what shows without JavaScript, or when the scene can't start. */
+    :root { --bg: #fafaf9; --text: #1c1917; --muted: #78716c; --accent: #2563eb; }
     @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1c1917;
-        --card: #292524;
-        --text: #f5f5f4;
-        --muted: #a8a29e;
-        --border: #44403c;
-        --accent: #60a5fa;
-        --thumb: #2f3a2b;
-      }
+      :root { --bg: #1c1917; --text: #f5f5f4; --muted: #a8a29e; --accent: #60a5fa; }
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 48px 16px;
-      background: var(--bg);
-      color: var(--text);
-      font: 16px/1.5 system-ui, -apple-system, sans-serif;
-    }
-    main { max-width: 800px; margin: 0 auto; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+    main { max-width: 640px; margin: 0 auto; padding: 48px 16px; }
     h1 { margin: 0 0 4px; font-size: 2rem; }
-    .intro { margin: 0 0 32px; color: var(--muted); }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
-      padding: 0;
-      list-style: none;
+    .intro { margin: 0 0 24px; color: var(--muted); }
+    .games { margin: 0; padding: 0; list-style: none; }
+    .games li + li { margin-top: 16px; }
+    .games a { display: block; color: inherit; text-decoration: none; }
+    .games strong { display: block; color: var(--accent); font-size: 1.15rem; }
+    .games a:hover strong, .games a:focus-visible strong { text-decoration: underline; }
+    .games span { display: block; color: var(--muted); }
+    #scene { display: none; }
+
+    /* While the scene starts, the list waits unseen. */
+    .js body { background: #232640; }
+    .js main { visibility: hidden; }
+
+    /* The scene: the canvas covers the window, and each link lies invisibly over its island. The words
+       stay in the links for screen readers; the canvas letters them on the island's sign. */
+    .scene body { overflow: hidden; }
+    .scene #scene { display: block; position: fixed; left: 0; top: 0; image-rendering: crisp-edges; image-rendering: pixelated; }
+    .scene main { visibility: visible; padding: 0; }
+    .scene h1, .scene .intro, .scene .games a > * {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
     }
-    .card {
-      display: block;
-      height: 100%;
-      padding: 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: inherit;
-      text-decoration: none;
-      transition: border-color 0.15s, transform 0.15s;
-    }
-    .card:hover, .card:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
-    .card .thumb {
-      display: grid;
-      place-items: center;
-      margin-bottom: 16px;
-      padding: 12px;
-      background: var(--thumb);
-      border-radius: 8px;
-    }
-    /* Pixel art is drawn tiny and scaled up by whole numbers; keep the pixels crisp. */
-    .card .thumb img { width: 144px; height: 144px; image-rendering: pixelated; }
-    .card h2 { margin: 0 0 6px; font-size: 1.15rem; }
-    .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    .scene .games a { position: fixed; outline: none; -webkit-tap-highlight-color: transparent; }
   </style>
 </head>
 <body>
+  <canvas id="scene" aria-hidden="true"></canvas>
   <main>
     <h1>Games</h1>
     <p class="intro">Little things I've built. Click one to play.</p>
-
-    <!-- To add a game: put it in its own folder with an index.html (and a 48x48 icon.png), then add a card here. -->
-    <ul class="grid">
-      <li>
-        <a class="card" href="./snake/">
-          <div class="thumb"><img src="./snake/icon.png" alt="" width="48" height="48"></div>
-          <h2>Snake</h2>
-          <p>Eat, grow, don't bite yourself. Arrow keys, WASD, or swipe.</p>
-        </a>
-      </li>
-      <li>
-        <a class="card" href="./marrow/">
-          <div class="thumb"><img src="./marrow/icon.png" alt="" width="48" height="48"></div>
-          <h2>Marrow</h2>
-          <p>A one-hit-kill duel through three nightmare worlds. Keyboard: A/D move, W/S stance, F attack, G jump.</p>
-        </a>
-      </li>
+    <!-- Each link is also the words on its island's sign. To add a game, see "Adding a game" in README.md. -->
+    <ul class="games">
+      <li><a href="./snake/" data-game="snake"><strong>Snake</strong> <span class="blurb">Eat, grow, don't bite yourself.</span> <span class="controls">Arrow keys, WASD, or swipe.</span></a></li>
+      <li><a href="./marrow/" data-game="marrow"><strong>Marrow</strong> <span class="blurb">A one-hit-kill duel through three nightmare worlds.</span> <span class="controls">Keyboard: A/D move, W/S stance, F attack, G jump.</span></a></li>
     </ul>
   </main>
+  <script type="module" src="./site/main.js"></script>
 </body>
 </html>
