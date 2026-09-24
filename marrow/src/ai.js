@@ -98,6 +98,14 @@ const hold = (out, dir) => {
 const press = (ai, out, key) => {
   out[key] = !ai.last[key];
 };
+// Attack, but never as the tail of the throw chord: armed, an Attack pressed with Up, or within
+// THROW_CHORD_TICKS after it (a stance change, a sweep), throws the sword. Only the throw tactics
+// mean to throw, and they press both themselves; any other attack waits out the chord.
+const attack = (ai, me, out) => {
+  const upNow = out.up && !me.prev.up;
+  if (me.armed && (upNow || me.upPressT < T.THROW_CHORD_TICKS)) return;
+  press(ai, out, 'attack');
+};
 
 function think(ai, state, me, seen, out) {
   if (me.state === 'ledge') {
@@ -215,7 +223,7 @@ function finish(ai, me, seen, out) {
     if (d > FINISH_CLOSE) walk(ai, out, dir);
     return;
   }
-  if (d <= T.NECKSNAP_RANGE - SNAP_MARGIN) press(ai, out, 'attack');
+  if (d <= T.NECKSNAP_RANGE - SNAP_MARGIN) attack(ai, me, out);
   else hold(out, dir);
 }
 
@@ -233,7 +241,7 @@ function rush(ai, state, me, seen, out, rand) {
     return;
   }
   if (me.state === 'stand' && d <= reachOf(me.stance) + LUNGE_REACH) {
-    press(ai, out, 'attack');
+    attack(ai, me, out);
     return;
   }
   closeIn(ai, me, seen, out, RUSH_STOP);
@@ -254,7 +262,7 @@ function wait(ai, state, me, seen, out, rand) {
   }
   const recovering = seen.state === 'lunge' && seen.t > T.LUNGE_STARTUP_TICKS + T.LUNGE_ACTIVE_TICKS;
   if (recovering && d <= reachOf(me.stance) + LUNGE_REACH && me.state === 'stand') {
-    press(ai, out, 'attack');
+    attack(ai, me, out);
     return;
   }
   if (d <= engageAt + ENGAGE_SLACK && me.stanceT >= T.STANCE_CHANGE_TICKS && rand() < SWEEP_CHANCE) {
@@ -289,7 +297,7 @@ function aerial(ai, state, me, seen, out, rand) {
   const d = dist(me, seen), dir = toward(me, seen);
   if (me.state === 'air') {
     hold(out, dir);
-    if (me.vy > 0 && d < DIVE_RANGE) press(ai, out, 'attack');
+    if (me.vy > 0 && d < DIVE_RANGE) attack(ai, me, out);
     return;
   }
   if (me.armed) setStanceTo(ai, me, 2, out);
@@ -320,7 +328,7 @@ function sweepIn(ai, state, me, seen, out, rand) {
     return;
   }
   if (me.state === 'roll') {
-    if (d < ROLL_SWEEP_RANGE) press(ai, out, 'attack');
+    if (d < ROLL_SWEEP_RANGE) attack(ai, me, out);
     return;
   }
   if (me.state === 'run' && d < ROLL_FROM) {
@@ -355,7 +363,7 @@ function unarmed(ai, state, me, seen, out, rand) {
     return;
   }
   if (!seen.armed) {
-    if (d <= PUNCH_RANGE) press(ai, out, 'attack');
+    if (d <= PUNCH_RANGE) attack(ai, me, out);
     else hold(out, dir);
     return;
   }

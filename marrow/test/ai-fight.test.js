@@ -64,6 +64,21 @@ test('the Waiter hunts for draw disarms: it runs in and stops with its blade acr
   assert.ok([1, 2, 3, 4, 5, 6].some(drew), 'no draw disarm from a stop in 10 s for any of the seeds');
 });
 
+test('the Waiter never throws its sword, not even by an Attack just after an Up (the throw chord)', () => {
+  const throws = [];
+  for (let seed = 1; seed <= 12; seed++) {
+    for (const p0 of [null, 'rusher', 'shifter']) { // null: a player who stands still
+      const s = createState();
+      const ais = [p0 && createAI(0, p0, seed), createAI(1, 'waiter', seed + 1000)];
+      for (let i = 0; i < 3600 && s.phase !== 'over'; i++) {
+        step(s, ais.map((ai) => ai && aiIntent(ai, s)));
+        if (s.events.some((e) => e.type === 'throw' && e.id === 1)) throws.push(`${p0 ?? 'still player'}, seed ${seed}, tick ${s.tick}`);
+      }
+    }
+  }
+  assert.deepEqual(throws, []);
+});
+
 test('a standoff across a wall ends: after 15 s without a kill, a CPU goes over it', () => {
   const s = createState({ screen: 5 }); // B2+: the low step (x 150-210) stands between the two start spots
   assert.ok(s.fighters[0].x < 150 && s.fighters[1].x > 210);
