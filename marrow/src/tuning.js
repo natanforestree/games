@@ -99,6 +99,11 @@ export const T = {
   MAW_SWALLOW_TICKS: 40,
   MAW_TICKS: 150,
 
+  // Flow (game.js): how soon a screen accepts a confirm press to skip its own wait
+  INTRO_SKIP_TICKS: 20,
+  RESULT_SKIP_TICKS: 30,
+  COMPLETE_SKIP_TICKS: 60,
+
   // Ichor (effects.js): a kill bursts into the victim's own glow ramp, from palette.json.
   ICHOR_DROPS_PER_KILL: 46,
   ICHOR_DROP_SPEED_MIN: 0.8,

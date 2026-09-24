@@ -1,7 +1,9 @@
-// Text and the HUD: the map track and the GO arrow. (Task 19 adds the timer and the flow screens.)
-// The HUD's colors are the current world's (its scenes.json `colors.hud`); the glows are the fighters'
-// own, the same in every world.
-import { VIEW_W } from './tuning.js';
+// Text and the HUD: the map track, the GO arrow, the timer and the flow screens (title, intro, result,
+// ladder complete, pause). The HUD's colors are the current world's (its scenes.json `colors.hud`);
+// the glows are the fighters' own, the same in every world.
+import { VIEW_W, VIEW_H } from './tuning.js';
+import { formatTime } from './game.js';
+import { LADDER } from './ai.js';
 
 const GLOW = ['#e8a33a', '#6fd6d0'];
 
@@ -51,4 +53,73 @@ export function drawHUD(ctx, state, assets, world, tick) {
     ctx.restore();
   }
   text(ctx, 'GO', h.dir > 0 ? x - LABEL_GAP : x + fw + LABEL_GAP, y + 2, { color: GLOW[h.id], align: h.dir > 0 ? 'right' : 'left' });
+}
+
+const OPPONENTS = {
+  rusher: ['I', 'THE RUSHER', 'charges in low and lunges often'],
+  waiter: ['II', 'THE WAITER', 'keeps its distance and waits for mistakes'],
+  shifter: ['III', 'THE SHIFTER', 'never fights the same way twice'],
+};
+
+const BLINK_TICKS = 30; // how often a flow screen's prompt blinks, like ARROW_FRAME_TICKS above
+
+export function drawTimer(ctx, ticks, world) {
+  text(ctx, formatTime(ticks), 6, 4, { color: world.colors.hud.dim });
+}
+
+// The screens around a match: title, opponent intro, result, ladder complete, and the pause overlay.
+// Each is veiled in the world behind it (its `clear` color) and lettered in its HUD colors; the glows
+// mark the player (amber) and the CPU (cyan).
+export function drawScreens(ctx, game, world, tick) {
+  const { hud, clear } = world.colors;
+  const blink = Math.floor(tick / BLINK_TICKS) % 2 === 0;
+  const cx = VIEW_W / 2;
+  const veil = () => {
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = clear;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.globalAlpha = 1;
+  };
+  switch (game.mode) {
+    case 'title':
+      veil();
+      text(ctx, 'MARROW', cx, 44, { color: hud.markHere, align: 'center', size: 24 });
+      text(ctx, 'reach the far end. the maw is waiting.', cx, 76, { color: hud.dim, align: 'center' });
+      if (game.touchOnly) text(ctx, 'KEYBOARD NEEDED', cx, 104, { color: hud.markHere, align: 'center' });
+      else if (blink) text(ctx, 'PRESS ENTER', cx, 104, { color: GLOW[0], align: 'center' });
+      text(ctx, 'A/D MOVE   W/S STANCE   F ATTACK   G JUMP', cx, 140, { color: hud.text, align: 'center' });
+      text(ctx, 'ESC PAUSE   M MUTE', cx, 152, { color: hud.text, align: 'center' });
+      if (game.best !== null) text(ctx, `BEST ${formatTime(game.best)}`, cx, 164, { color: hud.dim, align: 'center' });
+      break;
+    case 'intro': {
+      veil();
+      const [num, name, line] = OPPONENTS[LADDER[game.rung]];
+      text(ctx, num, cx, 52, { color: GLOW[1], align: 'center', size: 16 });
+      text(ctx, name, cx, 76, { color: hud.markHere, align: 'center', size: 16 });
+      text(ctx, line, cx, 100, { color: hud.dim, align: 'center' });
+      break;
+    }
+    case 'result': {
+      const won = game.outcome === 'win';
+      veil();
+      text(ctx, won ? 'VICTORY' : 'DEFEAT', cx, 60, { color: won ? GLOW[0] : GLOW[1], align: 'center', size: 16 });
+      text(ctx, won ? 'the maw accepts you' : 'the maw took them instead', cx, 86, { color: hud.dim, align: 'center' });
+      if (blink) text(ctx, won ? 'ENTER: NEXT OPPONENT' : 'ENTER: TRY AGAIN', cx, 112, { color: hud.text, align: 'center' });
+      break;
+    }
+    case 'complete':
+      veil();
+      text(ctx, 'THE LADDER IS DONE', cx, 52, { color: GLOW[0], align: 'center', size: 16 });
+      text(ctx, formatTime(game.timer), cx, 80, { color: hud.markHere, align: 'center', size: 16 });
+      if (game.newBest) text(ctx, 'NEW BEST', cx, 104, { color: GLOW[0], align: 'center' });
+      else if (game.best !== null) text(ctx, `BEST ${formatTime(game.best)}`, cx, 104, { color: hud.dim, align: 'center' });
+      if (blink) text(ctx, 'PRESS ENTER', cx, 128, { color: hud.text, align: 'center' });
+      break;
+    case 'match':
+      if (!game.paused) break;
+      veil();
+      text(ctx, 'PAUSED', cx, 72, { color: hud.markHere, align: 'center', size: 16 });
+      text(ctx, 'ESC RESUME   M MUTE', cx, 98, { color: hud.dim, align: 'center' });
+      break;
+  }
 }

@@ -3,9 +3,17 @@ import { VIEW_W, VIEW_H } from './tuning.js';
 import { drawPlaceholder, drawHitboxes } from './draw-debug.js';
 import { drawFighters, drawSwords } from './draw-fighters.js';
 import { drawWorld, drawMaw } from './draw-world.js';
-import { drawHUD } from './draw-ui.js';
+import { drawHUD, drawTimer, drawScreens } from './draw-ui.js';
 import { createEffects } from './effects.js';
 import { worldFor } from './assets.js';
+
+// The title shows the world of the card icon; every other screen shows the world of the rung being
+// fought (the intro the coming opponent's, the result and ladder-complete screens the one just fought).
+export const TITLE_WORLD = 'dusk';
+
+export function worldOf(assets, game) {
+  return game.mode === 'title' ? assets.worlds[TITLE_WORLD] : worldFor(assets, game.rung);
+}
 
 export function createRenderer(canvas, { debug = false } = {}) {
   const ctx = canvas.getContext('2d');
@@ -52,25 +60,30 @@ export function createRenderer(canvas, { debug = false } = {}) {
       ctx.fillStyle = '#9e917a';
       ctx.fillText(detail, VIEW_W / 2, 92);
     },
-    // rung: the ladder rung being fought (0-2), which picks the world the match is drawn in.
-    draw(state, rung = 0) {
+    draw(game) {
       frame++;
       ctx.imageSmoothingEnabled = false;
+      const state = game.state;
       if (!assets) {
         drawPlaceholder(ctx, state);
         return;
       }
       freshMatch(state);
-      const world = worldFor(assets, rung);
+      const world = worldOf(assets, game);
       drawWorld(ctx, state, world, fx, frame);
-      if (!state.slide) {
+      const showMatch = game.mode === 'match' || game.mode === 'result' || game.mode === 'complete';
+      if (showMatch && !state.slide) {
         drawSwords(ctx, state, assets);
         drawFighters(ctx, state, assets);
         fx.drawDrops(ctx, state.screen, 0);
         drawMaw(ctx, state, world);
       }
-      drawHUD(ctx, state, assets, world, frame);
+      if (game.mode === 'match') {
+        drawHUD(ctx, state, assets, world, frame);
+        drawTimer(ctx, game.timer, world);
+      }
       if (debug) drawHitboxes(ctx, state);
+      drawScreens(ctx, game, world, frame);
     },
   };
 }
