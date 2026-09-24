@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { WALLS } from '../src/map.js';
-import { FLOORS } from '../src/assets.js';
+import { FLOORS, COLOR_SLACK } from '../src/assets.js';
 import { SPRITE_ANIMS, SPRAY_Z } from '../src/scene.js';
 import { KINDS } from '../src/creatures.js';
 import { HAND_FRAMES, HUD_ICONS } from '../src/hud.js';
@@ -27,6 +27,16 @@ test('the palette: up to 255 colours, with glow indices and the named colours th
   assert.equal(new Set(p.colors).size, p.colors.length, 'no colour twice');
   for (const i of p.glow) assert.ok(i >= 1 && i <= p.colors.length);
   for (const n of ['flake', 'ichor', 'ui', 'uiDim', 'hurt', 'night']) assert.ok(p.names[n] >= 1 && p.names[n] <= p.colors.length, n);
+});
+
+test('no two palette colours are close enough for readback noise to land between them', () => {
+  const rgb = json('palette.json').colors.map((c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)));
+  for (let i = 0; i < rgb.length; i++) {
+    for (let j = i + 1; j < rgb.length; j++) {
+      const apart = Math.max(...[0, 1, 2].map((k) => Math.abs(rgb[i][k] - rgb[j][k])));
+      assert.ok(apart > 2 * COLOR_SLACK, `colours ${i + 1} and ${j + 1} are only ${apart} apart`);
+    }
+  }
 });
 
 test('a texture for every wall kind and floor, 32x32 each, side by side', () => {

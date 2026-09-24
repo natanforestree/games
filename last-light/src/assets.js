@@ -41,16 +41,32 @@ export function imagePixels(img) {
   return { w: img.width, h: img.height, data: x.getImageData(0, 0, img.width, img.height).data };
 }
 
-// RGBA pixels to palette indices (0 where transparent). A colour not in the palette is an art bug,
-// and is reported with where it is.
+// Some browsers add a little noise when a canvas is read back (Firefox's and Brave's fingerprinting
+// guards), so a colour within this much of a palette colour in every channel is taken as that colour.
+// The palette's closest two colours are 5 apart, so that's never ambiguous (art.test.js checks it).
+export const COLOR_SLACK = 2;
+
+// The palette index (1 up) of the colour within COLOR_SLACK of (r, g, b) in every channel, or 0.
+function nearIndex(rgbs, r, g, b) {
+  for (let k = 0; k < rgbs.length; k++) {
+    const c = rgbs[k];
+    if (Math.abs((c >> 16) - r) <= COLOR_SLACK && Math.abs(((c >> 8) & 255) - g) <= COLOR_SLACK && Math.abs((c & 255) - b) <= COLOR_SLACK) return k + 1;
+  }
+  return 0;
+}
+
+// RGBA pixels to palette indices (0 where transparent: alpha under half, which also absorbs noise).
+// A colour not in the palette, even allowing for noise, is an art bug, and is reported with where it is.
 export function indexPixels({ w, h, data }, colors, name) {
-  const lookup = new Map(colors.map((hex, i) => [parseInt(hex.slice(1), 16), i + 1]));
+  const rgbs = colors.map((hex) => parseInt(hex.slice(1), 16));
+  const lookup = new Map(rgbs.map((rgb, i) => [rgb, i + 1]));
   const out = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) {
-    if (data[i * 4 + 3] === 0) continue;
-    const rgb = (data[i * 4] << 16) | (data[i * 4 + 1] << 8) | data[i * 4 + 2];
-    const idx = lookup.get(rgb);
-    if (idx === undefined) {
+    if (data[i * 4 + 3] < 128) continue;
+    const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+    const rgb = (r << 16) | (g << 8) | b;
+    const idx = lookup.get(rgb) ?? nearIndex(rgbs, r, g, b);
+    if (idx === 0) {
       throw new Error(`${name}: the pixel at ${i % w},${Math.floor(i / w)} is #${rgb.toString(16).padStart(6, '0')}, which isn't in the palette`);
     }
     out[i] = idx;

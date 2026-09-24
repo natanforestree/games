@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexPixels, cut, unpackArt, buildMips } from '../src/assets.js';
+import { indexPixels, cut, unpackArt, buildMips, COLOR_SLACK } from '../src/assets.js';
 
 // A column-major frame (index x * h + y), as sprites are stored, from rows of digits (0 is clear).
 function frameOf(rows) {
@@ -32,6 +32,33 @@ test('pixels become palette indices, transparent is 0, and a stray colour is nam
   const idx = indexPixels(rgba(2, 1, (x) => (x ? '#ffffff' : null)), colors, 't');
   assert.deepEqual([...idx], [0, 2]);
   assert.throws(() => indexPixels(rgba(1, 1, () => '#123456'), colors, 'sky.png'), /sky\.png: the pixel at 0,0 is #123456/);
+});
+
+// One pixel's RGBA readback, for the noise tests.
+const px = (r, g, b, a = 255) => ({ w: 1, h: 1, data: Uint8ClampedArray.from([r, g, b, a]) });
+
+test('readback noise: a colour off by up to 2 in each channel is still its palette colour', () => {
+  // The palette's closest two colours, 5 apart in red.
+  const colors = ['#4e3324', '#4a2e22'];
+  assert.equal(COLOR_SLACK, 2);
+  assert.deepEqual([...indexPixels(px(0x4e + 2, 0x33 - 2, 0x24 + 1), colors, 't')], [1]);
+  assert.deepEqual([...indexPixels(px(0x4e - 2, 0x33 + 1, 0x24 - 2), colors, 't')], [1]);
+  assert.deepEqual([...indexPixels(px(0x4a + 2, 0x2e + 2, 0x22 - 1), colors, 't')], [2]);
+  assert.deepEqual([...indexPixels(px(0x4a - 1, 0x2e - 2, 0x22 + 2), colors, 't')], [2]);
+});
+
+test('readback noise: alpha under half is clear, and half or more is opaque', () => {
+  const colors = ['#000000', '#ffffff'];
+  assert.deepEqual([...indexPixels(px(255, 255, 255, 100), colors, 't')], [0]);
+  assert.deepEqual([...indexPixels(px(255, 255, 255, 1), colors, 't')], [0]);
+  assert.deepEqual([...indexPixels(px(255, 255, 255, 128), colors, 't')], [2]);
+  assert.deepEqual([...indexPixels(px(254, 253, 255, 200), colors, 't')], [2]);
+});
+
+test('a colour further off than noise is still an art bug, and is named', () => {
+  const colors = ['#4e3324', '#4a2e22'];
+  assert.throws(() => indexPixels(px(0x4e + 10, 0x33, 0x24), colors, 'sprites.png'), /sprites\.png: the pixel at 0,0 is #583324/);
+  assert.throws(() => indexPixels(px(0x4e, 0x33 + 3, 0x24), colors, 'sky.png'), /isn't in the palette/);
 });
 
 test('cut: rows for floors, columns for walls and sprites', () => {
