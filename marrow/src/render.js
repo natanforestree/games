@@ -52,7 +52,10 @@ export function createRenderer(canvas, { debug = false } = {}) {
       fx.update();
     },
     // Drawn before any art has loaded, so its colors are fixed here rather than taken from a world.
+    // It also covers a frame that failed partway, so it first undoes any transform or alpha left behind.
     message(title, detail) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
       ctx.fillStyle = '#0b0807';
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       ctx.font = '8px Silkscreen, monospace';

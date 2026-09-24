@@ -66,18 +66,25 @@ async function boot() {
   const NONE = new Set();
   let pending = new Set(); // UI presses wait for the next tick, even on frames that run none
   const frame = (now) => {
-    const ui = input.takeUI();
-    if (ui.has('mute')) audio.toggleMute();
-    for (const a of ui) pending.add(a);
-    const n = clock.ticks(now) * speed;
-    for (let i = 0; i < n; i++) {
-      game.tick(input.sample(), i === 0 ? pending : NONE);
-      if (away) game.pause();
-      renderer.tick(game.state, game.events);
-      audio.onTick(game.events, game.state, game.mode === 'match');
+    try {
+      const ui = input.takeUI();
+      if (ui.has('mute')) audio.toggleMute();
+      for (const a of ui) pending.add(a);
+      const n = clock.ticks(now) * speed;
+      for (let i = 0; i < n; i++) {
+        game.tick(input.sample(), i === 0 ? pending : NONE);
+        if (away) game.pause();
+        renderer.tick(game.state, game.events);
+        audio.onTick(game.events, game.state, game.mode === 'match');
+      }
+      if (n > 0) pending = new Set();
+      renderer.draw(game);
+    } catch (err) {
+      // An error stops the loop with a message, rather than freezing the game without a word.
+      console.error(err);
+      renderer.message('Something went wrong.', 'Reload the page to play again.');
+      return;
     }
-    if (n > 0) pending = new Set();
-    renderer.draw(game);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
