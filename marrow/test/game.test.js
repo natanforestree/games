@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createGame, formatTime, INTRO_TICKS, RESULT_TICKS, BEST_KEY } from '../src/game.js';
 import { NO_INPUT } from '../src/fighter.js';
 import { worldOf } from '../src/render.js';
+import { T } from '../src/tuning.js';
 
 const memory = () => {
   const m = new Map();
@@ -121,6 +122,34 @@ test("the page's pause only stops a match: not the title, the intro or a debug r
   assert.equal(d.mode, 'match');
   d.pause();
   assert.equal(d.paused, false);
+});
+
+test('a key held from skipping the intro fires nothing in the match until pressed again', () => {
+  for (const [button, move] of [['attack', 'lunge'], ['jump', 'air']]) {
+    const g = createGame({ storage: memory() });
+    g.tick(NO_INPUT, GO);
+    ticks(g, T.INTRO_SKIP_TICKS);
+    const held = { ...NO_INPUT, [button]: true };
+    g.tick(held, new Set([button])); // skips the intro, and stays held
+    assert.equal(g.mode, 'match');
+    const states = [];
+    for (let i = 0; i < 10; i++) {
+      g.tick(held, NONE);
+      states.push(g.state.fighters[0].state);
+    }
+    assert.ok(states.every((s) => s === 'stand'), `holding ${button}: ${states.join(' ')}`);
+    g.tick(NO_INPUT, NONE); // let go and press it again: now it fires
+    g.tick(held, NONE);
+    assert.equal(g.state.fighters[0].state, move);
+  }
+});
+
+test("a held direction reaches the player's fighter from a match's first tick", () => {
+  const g = createGame({ storage: memory() });
+  toMatch(g);
+  const x = g.state.fighters[0].x;
+  for (let i = 0; i < 10; i++) g.tick({ ...NO_INPUT, right: true }, NONE);
+  assert.ok(g.state.fighters[0].x > x);
 });
 
 test('formatTime shows minutes, seconds and hundredths', () => {

@@ -2,6 +2,7 @@
 // speedrun timer (match ticks across the whole ladder, retries included) and the best time.
 import { createState, step } from './sim.js';
 import { createAI, aiIntent, LADDER } from './ai.js';
+import { trackInput } from './fighter.js';
 import { T } from './tuning.js';
 
 export const INTRO_TICKS = 150;
@@ -44,7 +45,7 @@ function tick(g, held, ui, storage) {
       if (go) startLadder(g);
       break;
     case 'intro':
-      if (g.modeT >= INTRO_TICKS || (go && g.modeT > T.INTRO_SKIP_TICKS)) startMatch(g);
+      if (g.modeT >= INTRO_TICKS || (go && g.modeT > T.INTRO_SKIP_TICKS)) startMatch(g, held);
       break;
     case 'match':
       playMatch(g, held, ui, storage);
@@ -76,9 +77,12 @@ function toIntro(g) {
   enter(g, 'intro');
 }
 
-function startMatch(g) {
+function startMatch(g, held) {
   g.ais = [createAI(0, 'shifter', g.seed++), createAI(1, LADDER[g.rung], g.seed++)];
   g.paused = false;
+  // A key still held from the intro (Attack or Jump skips it) mustn't fire on the match's first tick:
+  // the fighter counts it as already down, so it acts only when pressed again.
+  if (!g.debugCpu) trackInput(g.state.fighters[0], held);
   enter(g, 'match');
 }
 
