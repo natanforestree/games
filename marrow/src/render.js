@@ -1,6 +1,6 @@
 // Draws the game on the 320x180 canvas, scaled up by the largest whole number that fits the window.
 import { VIEW_W, VIEW_H } from './tuning.js';
-import { drawPlaceholder, drawHitboxes } from './draw-debug.js';
+import { drawHitboxes } from './draw-debug.js';
 import { drawFighters, drawSwords } from './draw-fighters.js';
 import { drawWorld, drawMaw } from './draw-world.js';
 import { drawHUD, drawTimer, drawScreens } from './draw-ui.js';
@@ -64,12 +64,9 @@ export function createRenderer(canvas, { debug = false } = {}) {
       ctx.fillText(detail, VIEW_W / 2, 92);
     },
     draw(game) {
+      if (!assets) return; // main.js starts the loop only once the art has loaded
       ctx.imageSmoothingEnabled = false;
       const state = game.state;
-      if (!assets) {
-        drawPlaceholder(ctx, state);
-        return;
-      }
       freshMatch(state);
       const world = worldOf(assets, game);
       drawWorld(ctx, state, world, fx, anim);
