@@ -12,9 +12,9 @@ test('falloff is full inside `full`, smooth to nothing at `dark`', () => {
 });
 
 test('the lantern: creatures read clearly within about 3 cells, are shapes out to 7, and only their eyes show past it', () => {
-  const { full, dark } = LIGHT.lantern;
+  const { full, dark, intensity } = LIGHT.lantern;
   const at = (d) => falloff(d, full, dark);
-  assert.ok(at(3) > 0.9, 'clear at 3 cells');
+  assert.ok(at(3) > 0.9 && intensity * at(3) >= 0.7, 'clear at 3 cells');
   assert.ok(at(4) < 0.8 && at(5) < 0.45 && at(6) > 0.05, 'dimming to a shape from 4 to 6 cells');
   assert.equal(at(7), 0, 'dark by 7 cells');
   assert.ok(LIGHT.eyes.full >= dark, 'eyes still shine at full where the lantern ends');

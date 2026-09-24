@@ -86,7 +86,7 @@ test('the lantern lights where you stand, and the muzzle flash adds to it', () =
   const lm = createLightmap(s.map);
   buildFrame(scene, s, lm, view());
   const plain = lightAt(lm, s.player.x, s.player.y);
-  assert.ok(plain > 0.9);
+  assert.ok(plain > 0.9 * LIGHT.lantern.intensity, 'the lantern at full where you stand, less its flicker');
   s.flash = 0.04;
   buildFrame(scene, s, lm, view());
   assert.ok(lightAt(lm, s.player.x, s.player.y) > plain + 0.5);
