@@ -6,6 +6,7 @@
 //   textures.json  { size: 32, names: [...] }, textures.png: the tiles side by side in that order
 //   sky.png        the panorama; its bottom row sits on the horizon, and it wraps round
 //   sprites.json   { sprites: { name: { x, y, w, h, count, height, stride?, ms?, anims: { anim: [frame...] } } } }
+//                  (each frame unpacks to { w, h, px, mips }; see buildMips)
 //                  sprites.png: each sprite's frames left to right from (x, y)
 //   hands.json     { frames: { name: [x, y, w, h, ox, oy] } }: (ox, oy) places the frame's top-left
 //                  relative to the bottom centre of the view
@@ -66,6 +67,38 @@ export function cut(indexed, imgW, x, y, w, h, columns) {
   return out;
 }
 
+// Far off, a sprite is drawn smaller than its frame, and sampling one texel per pixel skips some: a
+// 1-texel eye would blink out. So each sprite frame carries `mips`, for the renderer to sample from
+// instead: the frame halved, then halved again (1/2, 1/4, 1/8, each side rounded up). In each 2x2
+// block a glowing texel wins, so the eyes survive every halving; otherwise the block keeps its first
+// opaque texel reading across then down (top-left, top-right, bottom-left, bottom-right), or stays
+// clear. Frames are column-major (index x * h + y), like `cut(..., true)` makes them.
+export const MIP_LEVELS = 3;
+
+function halve(f, emissive) {
+  const w = Math.ceil(f.w / 2), h = Math.ceil(f.h / 2), px = new Uint8Array(w * h);
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      let opaque = 0, glow = 0;
+      for (let k = 0; k < 4 && glow === 0; k++) {
+        const sx = 2 * x + (k & 1), sy = 2 * y + (k >> 1);
+        if (sx >= f.w || sy >= f.h) continue;
+        const v = f.px[sx * f.h + sy];
+        if (emissive[v]) glow = v;
+        else if (opaque === 0) opaque = v;
+      }
+      px[x * h + y] = glow || opaque;
+    }
+  }
+  return { w, h, px };
+}
+
+export function buildMips(frame, emissive, levels = MIP_LEVELS) {
+  const mips = [];
+  for (let i = 0, f = frame; i < levels; i++) mips.push((f = halve(f, emissive)));
+  return mips;
+}
+
 // json: { palette, textures, sprites, hands, hud }; images: { textures, sky, sprites, hands, hud };
 // pixels(image) -> { w, h, data (RGBA) }.
 export function unpackArt(json, images, pixels) {
@@ -87,7 +120,11 @@ export function unpackArt(json, images, pixels) {
   for (const [name, s] of Object.entries(json.sprites.sprites)) {
     sprites[name] = {
       height: s.height, stride: s.stride, ms: s.ms, anims: s.anims,
-      frames: Array.from({ length: s.count }, (_, i) => ({ w: s.w, h: s.h, px: cut(sprIdx, spr.w, s.x + i * s.w, s.y, s.w, s.h, true) })),
+      frames: Array.from({ length: s.count }, (_, i) => {
+        const f = { w: s.w, h: s.h, px: cut(sprIdx, spr.w, s.x + i * s.w, s.y, s.w, s.h, true) };
+        f.mips = buildMips(f, shades.emissive);
+        return f;
+      }),
     };
   }
   const color = (n) => palette.colors[palette.names[n] - 1];

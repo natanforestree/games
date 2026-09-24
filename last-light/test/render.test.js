@@ -6,6 +6,7 @@ import { parseMap } from '../src/map.js';
 import { createLightmap, beginLight, addLight } from '../src/lightmap.js';
 import { room } from './helpers.js';
 import { testArt, drawnAt, IDX } from './render-helpers.js';
+import { buildMips } from '../src/assets.js';
 
 const view = chooseView(480, 270, 1);
 
@@ -49,6 +50,43 @@ test('glowing eyes show in the dark, and fade with the sprite glow level', () =>
   assert.equal(px, art.shades.table[(15 << 8) | IDX.eye]);
   r.draw(frame({ sprites: [{ x: 8.5, y: 5.5, height: 0.5, frame: eyes, glow: 4 }], spriteCount: 1 }));
   assert.equal(r.buffer[(view.h / 2 + 20) * view.w + view.w / 2], art.shades.fade[(4 << 8) | IDX.eye]);
+});
+
+// A 36x36 body with one eye, a single texel, as a creature's are; column-major, like sprite frames.
+function oneEyed(art) {
+  const f = { w: 36, h: 36, px: new Uint8Array(36 * 36) };
+  for (let i = 0; i < f.px.length; i++) f.px[i] = i % 5 === 0 ? 0 : IDX.body;
+  f.px[17 * 36 + 11] = IDX.eye;
+  return { plain: f, mipped: { ...f, mips: buildMips(f, art.shades.emissive) } };
+}
+const glowPixels = (art, buf) => {
+  const eye = art.shades.table[(15 << 8) | IDX.eye];
+  let n = 0;
+  for (let i = 0; i < buf.length; i++) if (buf[i] === eye) n++;
+  return n;
+};
+
+test('far off, a 1-texel eye never blinks out: drawn at 1/3 to 1/6 of its size, every distance shows it', () => {
+  const { art, r, frame } = setup(room(), 0);
+  const { mipped } = oneEyed(art);
+  const lost = [];
+  // Height 0.1 is 24 px at 1 cell: 12 px (1/3 of the frame) at 2 cells, 6 px (1/6) at 4.
+  for (let d = 2; d <= 4.0001; d += 0.02) {
+    r.draw(frame({ sprites: [{ x: 6.5 + d, y: 5.5, height: 0.1, frame: mipped }], spriteCount: 1 }));
+    if (glowPixels(art, r.buffer) === 0) lost.push(d.toFixed(2));
+  }
+  assert.deepEqual(lost, [], `no eye at ${lost.length} distances`);
+});
+
+test('drawn at full size or bigger, a sprite with mips looks exactly as it does without', () => {
+  const { art, r, frame } = setup(room(), 0.6);
+  const { plain, mipped } = oneEyed(art);
+  for (const d of [1.5, 2.5, 3.3]) { // height 0.5: 80, 48 and 36.4 px for the 36-texel frame
+    r.draw(frame({ sprites: [{ x: 6.5 + d, y: 5.5, height: 0.5, frame: plain, flip: d > 2 }], spriteCount: 1 }));
+    const before = Uint32Array.from(r.buffer);
+    r.draw(frame({ sprites: [{ x: 6.5 + d, y: 5.5, height: 0.5, frame: mipped, flip: d > 2 }], spriteCount: 1 }));
+    assert.deepEqual(r.buffer, before, `at ${d} cells`);
+  }
 });
 
 test('a light brightens the snow near it', () => {

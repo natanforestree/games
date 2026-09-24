@@ -216,18 +216,35 @@ export function createRenderer(art, map) {
         if (xa >= xb || ya >= yb) continue;
         const light = lightAt(lm, s.x, s.y) * TOP;
         const eyes = (s.glow ?? TOP) << 8;
-        const px = fr.px, fw = fr.w, fh = fr.h;
+        // Far off, sample a halved copy of the frame (its `mips`, from assets.js): the finest that's
+        // less than twice the drawn size. While that's still bigger than drawn, pixels skip some of its
+        // texels, and a 1-texel eye could fall between them; so each pixel also looks at the next
+        // level down, at the 2x2 block its texel is in, and shows the block's glow if it has one. On
+        // screen every texel of that level spans at least a pixel, so no pixel skips it, and the eyes
+        // never blink out.
+        let F = fr, G = null, mi = 0;
+        const mips = fr.mips;
+        if (mips !== undefined) {
+          while (mi < mips.length && F.h >= 2 * sh) F = mips[mi++];
+          if (mi < mips.length && (F.h > sh || F.w > sw)) G = mips[mi];
+        }
+        const px = F.px, fw = F.w, fh = F.h;
+        const gpx = G === null ? null : G.px, gh = G === null ? 0 : G.h;
         for (let x = xa; x < xb; x++) {
           if (depth >= zbuf[x]) continue;
           let tx = (((x + 0.5 - left) / sw) * fw) | 0;
           if (tx >= fw) tx = fw - 1;
           if (s.flip) tx = fw - 1 - tx;
-          const col = tx * fh, last = col + fh - 1, step = fh / sh;
+          const col = tx * fh, last = col + fh - 1, step = fh / sh, gcol = (tx >> 1) * gh;
           let pos = (ya + 0.5 - top) * step;
           for (let y = ya, o = ya * w + x; y < yb; y++, o += w, pos += step) {
             let ti = col + (pos | 0);
             if (ti > last) ti = last;
-            const idx = px[ti];
+            let idx = px[ti];
+            if (gpx !== null && emissive[idx] === 0) {
+              const g = gpx[gcol + ((ti - col) >> 1)];
+              if (emissive[g] === 1) idx = g;
+            }
             if (idx === 0) continue;
             if (emissive[idx]) {
               buf[o] = fade[eyes | idx];
