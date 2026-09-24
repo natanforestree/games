@@ -23,7 +23,12 @@ export const MOUSE = {
   sensitivity: 0.0025, // radians per count at 1x
   minScale: 0.25,
   maxScale: 4,
-  spike: 600, // a single event moving more than this many counts is a browser glitch, and is ignored
+  // A browser glitch (Chrome's, as the pointer lock starts) is one event that jumps out of nowhere: over
+  // `spike` counts, and over `jump` times the event before it plus `floor`. It's ignored. A real flick
+  // ramps up through its events, so however fast it is, it's kept.
+  spike: 600,
+  jump: 4,
+  floor: 50,
 };
 
 export const LIGHT = {

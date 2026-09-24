@@ -58,6 +58,31 @@ test('a single huge mouse jump is a browser glitch and is ignored', () => {
   assert.equal(input.facing, 0);
 });
 
+test('a fast flick that ramps up is a hand, not a glitch: every event of it turns you', () => {
+  const { win, input } = setup();
+  input.sensitivity = MOUSE.minScale; // the slider at its lowest, where a panicked flick is biggest
+  for (const dx of [200, 400, 700, 900, 900]) win.fire('mousemove', { movementX: dx });
+  assert.ok(Math.abs(input.facing - 3100 * MOUSE.sensitivity * MOUSE.minScale) < 1e-12, `turned ${input.facing}`);
+});
+
+test('a jump out of a slow turn is still a glitch, and the lock starts every judgement afresh', () => {
+  const { win, doc, input } = setup();
+  input.sensitivity = MOUSE.minScale;
+  const turn = MOUSE.sensitivity * MOUSE.minScale;
+  win.fire('mousemove', { movementX: 30 });
+  win.fire('mousemove', { movementX: 5000 });
+  assert.ok(Math.abs(input.facing - 30 * turn) < 1e-12, 'the jump is dropped');
+  // A fast flick, then Esc and back: the glitch that comes with the new lock isn't judged by that flick.
+  const before = input.facing;
+  for (const dx of [300, 700, 900]) win.fire('mousemove', { movementX: dx });
+  doc.pointerLockElement = null;
+  doc.fire('pointerlockchange');
+  doc.pointerLockElement = input.element;
+  doc.fire('pointerlockchange');
+  win.fire('mousemove', { movementX: 3000 });
+  assert.ok(Math.abs(input.facing - before - 1900 * turn) < 1e-12, `turned ${input.facing - before}`);
+});
+
 test('a click shorter than an update still fires once; holding keeps firing', () => {
   const { win, input } = setup();
   win.fire('mousedown', { button: 0 });
@@ -92,6 +117,21 @@ test('the wheel steps weapons, once per fling', () => {
   win.fire('wheel', { deltaY: -5, timeStamp: 1300 });
   assert.equal(input.sample().weaponStep, -1);
   assert.equal(input.sample().weaponStep, 0);
+});
+
+test('a long trackpad fling is one weapon step however long it runs; a fresh flick after a pause is another', () => {
+  const { win, input } = setup();
+  // One wheel event every 16 ms for a second, sampled at 120 Hz as the game does.
+  const steps = [];
+  let at = 1000;
+  for (let t = 1000; t < 2000; t += 1000 / 120) {
+    for (; at <= t; at += 16) win.fire('wheel', { deltaY: 30, timeStamp: at });
+    const s = input.sample().weaponStep;
+    if (s) steps.push(s);
+  }
+  assert.deepEqual(steps, [1]);
+  win.fire('wheel', { deltaY: -30, timeStamp: at + 200 });
+  assert.equal(input.sample().weaponStep, -1);
 });
 
 test('losing focus or the pointer lock releases every key and the trigger', () => {

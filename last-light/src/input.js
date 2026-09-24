@@ -12,14 +12,14 @@ function anyDown(down, codes) {
   for (let i = 0; i < codes.length; i++) if (down.has(codes[i])) return true;
   return false;
 }
-const WHEEL_GAP = 150; // ms between wheel steps, so a trackpad fling is one switch, not ten
+const WHEEL_GAP = 150; // ms of quiet before a wheel event steps, so a whole trackpad fling is one switch
 
 export function createInput(target = globalThis, doc = globalThis.document, bindings = KEYS) {
   const actionOf = new Map();
   for (const [action, codes] of Object.entries(bindings)) for (const code of codes) actionOf.set(code, action);
   const down = new Set();
   const pressed = { reload: 0, flare: 0, rifle: 0, shotgun: 0, mute: 0, wheel: 0 };
-  let fireHeld = false, fireTapped = false, lastWheel = -Infinity;
+  let fireHeld = false, fireTapped = false, lastWheel = -Infinity, lastDx = 0;
   const out = { facing: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0 };
   const ui = { mute: 0 };
 
@@ -92,8 +92,9 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   target.addEventListener('keyup', (e) => (isMeta(e.code) ? input.releaseAll() : down.delete(e.code)));
   target.addEventListener('mousemove', (e) => {
     if (!input.locked) return;
-    const dx = e.movementX || 0;
-    if (Math.abs(dx) > MOUSE.spike) return; // a browser glitch, not a hand
+    const dx = e.movementX || 0, size = Math.abs(dx), before = lastDx;
+    lastDx = size;
+    if (size > MOUSE.spike && size > MOUSE.jump * before + MOUSE.floor) return; // a browser glitch, not a hand
     input.facing += dx * MOUSE.sensitivity * input.sensitivity;
     if (input.facing > Math.PI) input.facing -= 2 * Math.PI;
     else if (input.facing < -Math.PI) input.facing += 2 * Math.PI;
@@ -114,10 +115,11 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
     (e) => {
       if (!input.locked || e.deltaY === 0) return;
       e.preventDefault?.();
+      // Every event pushes the quiet back, so a fling's momentum tail can't step again.
       const now = e.timeStamp ?? 0;
-      if (now - lastWheel < WHEEL_GAP) return;
+      const quiet = now - lastWheel >= WHEEL_GAP;
       lastWheel = now;
-      pressed.wheel = e.deltaY > 0 ? 1 : -1;
+      if (quiet) pressed.wheel = e.deltaY > 0 ? 1 : -1;
     },
     { passive: false },
   );
@@ -128,6 +130,7 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   doc?.addEventListener('pointerlockchange', () => {
     input.locked = !!doc.pointerLockElement && doc.pointerLockElement === input.element;
     input.releaseAll(); // gained or lost: nothing pressed before the change carries across it
+    lastDx = 0; // nor does a flick: a new lock's first event is judged from stillness
   });
   return input;
 }
