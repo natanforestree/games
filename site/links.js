@@ -66,5 +66,10 @@ export function createLinks(doc, win) {
         Object.assign(a.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
       }
     },
+    // Clears what place() set, so the plain list isn't left with island-sized gaps if the scene fails
+    // after already laying the links out (main.js's fail() calls this).
+    reset() {
+      for (const a of byId.values()) Object.assign(a.style, { left: '', top: '', width: '', height: '' });
+    },
   };
 }

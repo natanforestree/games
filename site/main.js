@@ -11,9 +11,12 @@ import { createRenderer } from './render.js';
 const root = document.documentElement;
 root.classList.add('js', 'booting'); // index.html's fallback timer leaves a booting page alone
 
+let links = null; // set once boot() creates it; fail() may run before or after that
+
 function fail(err) {
   console.error(err);
   root.classList.remove('js', 'booting', 'scene');
+  links?.reset(); // undo place()'s inline sizing, so the plain list isn't left with island-sized gaps
 }
 
 async function boot() {
@@ -24,7 +27,7 @@ async function boot() {
     Promise.all(['16px Silkscreen', '8px Silkscreen', '700 8px Silkscreen'].map((font) => document.fonts.load(font)))
       .catch((err) => console.warn('Silkscreen not loaded; using the fallback font', err)),
   ]);
-  const links = createLinks(document, window);
+  links = createLinks(document, window);
   const renderer = createRenderer(ctx, art, links.info);
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let view, islands;
