@@ -9,9 +9,9 @@ import { edgesOpen } from './match.js';
 import { nextRandom } from './rng.js';
 
 export const PERSONALITIES = {
-  rusher: { reaction: 14, dodge: 0.5, throwChance: 0.003, tactics: ['rush'] },
-  waiter: { reaction: 10, dodge: 0.9, throwChance: 0, tactics: ['wait'] },
-  shifter: { reaction: 8, dodge: 0.8, throwChance: 0, tactics: ['rush', 'wait', 'aerial', 'throw', 'sweep'], switchTicks: 180 },
+  rusher: { reaction: 14, dodge: 0.5, throwChance: 0.003, drawChance: 0, tactics: ['rush'] },
+  waiter: { reaction: 10, dodge: 0.9, throwChance: 0, drawChance: 0.02, tactics: ['wait'] },
+  shifter: { reaction: 8, dodge: 0.8, throwChance: 0, drawChance: 0, tactics: ['rush', 'wait', 'aerial', 'throw', 'sweep'], switchTicks: 180 },
 };
 export const LADDER = ['rusher', 'waiter', 'shifter'];
 
@@ -27,12 +27,47 @@ const WALL_PROBE_MAX = 18; // farthest px ahead probed for a wall
 const WALL_PROBE_STEP = 4; // px between wall probes
 const WALL_PROBE_HEIGHTS = [5, 15]; // heights above the feet probed for a wall
 
+// Fighting tuning: the tactics' own heuristics (distances in px from body center to body center).
+const TACTIC_JITTER_TICKS = 60; // a new tactic starts up to this far into its time, so switches don't fall on a beat
+const CALM_TICKS = 900; // 15 s without a kill: a waiting CPU goes in, and an armed one goes over a wall between them
+const PAST_MARGIN = 24; // how far past the opponent the arrow holder must be before it runs for its goal
+const WALK_CYCLE = 14; // walking lets go for one tick in this many, short of RUN_AFTER_TICKS, so it never breaks into a run
+const RUN_FROM = 110; // farther than this, run in rather than walk
+const RUN_LET_GO = 30; // a run lets go this far short of where it means to stop, then walks the rest blade first
+const FINISH_CLOSE = 16; // an armed finisher walks this close to a downed opponent
+const SNAP_MARGIN = 2; // how far inside NECKSNAP_RANGE an unarmed finisher stops to snap
+const RUSH_STOP = 20; // how close a rush walks in when it isn't lunging
+const RUSH_FLIP_CHANCE = 0.5; // after a clash, the rush flips between low and mid this often
+const RUSH_THROW_MIN = 60; // the range a rush's rare throws are tried from
+const RUSH_THROW_MAX = 160;
+const ENGAGE_CROSS = 7; // how far blades cross when a waiting CPU engages them
+const MISMATCH_GAP = 8; // extra room a waiting CPU keeps while its stance doesn't match yet
+const ENGAGE_SLACK = 1; // px either side of the engaging distance that still counts as engaged
+const SWEEP_CHANCE = 0.06; // per tick, with blades crossed: sweep across them for a stance disarm
+const DRAW_CROSS = 5; // how far across their blade a draw plants its tip
+const DRAW_RUN_UP = 24; // room a draw needs beyond that point, to walk into a run and then run
+const JUMP_MIN = 40; // the range an aerial attack jumps from
+const JUMP_MAX = 70;
+const AERIAL_STOP = 55; // where an aerial attack walks in to before it jumps
+const DIVE_RANGE = 30; // falling, a dive kick is launched this close
+const THROW_MIN = 50; // the range the throw tactic throws from
+const THROW_MAX = 170;
+const ROLL_FROM = 44; // a sweep-in rolls from this close
+const ROLL_SWEEP_RANGE = 18; // rolling, it sweeps this close
+const SWORD_SEEK_RANGE = 90; // an unarmed CPU goes for a sword this close
+const SWORD_CLEAR = 24; // ...if it's on its own side, or nearer than the opponent by this much
+const SWORD_STILL = 1; // near enough to a falling sword to wait under it
+const PICKUP_MARGIN = 1; // how far inside PICKUP_RANGE it stands to pick a sword up
+const PUNCH_RANGE = 12; // unarmed against unarmed, it punches from this close
+const DODGE_LOOKAHEAD = 80; // a thrown sword this close and coming is dodged
+const ROLLUP_SWORD_RANGE = 40; // getting up, it rolls toward a sword on the floor this close
+
 export function createAI(id, personality, seed = 1) {
   const p = PERSONALITIES[personality];
   return {
     id, personality, p, rng: { s: seed >>> 0 }, seen: [], last: { ...NO_INPUT },
     tactic: p.tactics[0], tacticT: 0, calmT: 0, rushStance: 0, walkT: 0,
-    stuckT: 0, lastX: null, backoffT: 0, dodgeFor: null, dodging: false,
+    stuckT: 0, lastX: null, backoffT: 0, dodgeFor: null, dodging: false, drawing: false,
   };
 }
 
@@ -71,8 +106,31 @@ function think(ai, state, me, seen, out) {
     hold(out, me.wallDir);
     return;
   }
+  if (me.state === 'knocked') {
+    getUp(ai, state, me, out);
+    return;
+  }
+  const rand = () => nextRandom(ai.rng);
+  if (ai.p.switchTicks && ++ai.tacticT >= ai.p.switchTicks) {
+    ai.tacticT = Math.floor(rand() * TACTIC_JITTER_TICKS);
+    ai.tactic = ai.p.tactics[Math.floor(rand() * ai.p.tactics.length)];
+  }
+  ai.calmT = state.events.some((e) => e.type === 'kill') ? 0 : ai.calmT + 1;
   const oppHere = seen.active && isActive(state.fighters[1 - ai.id]);
-  if (!oppHere && state.arrow === ai.id) navigate(ai, state, me, out);
+  const pastThem = oppHere && Math.sign(seen.x - me.x) === -me.dir && Math.abs(seen.x - me.x) > PAST_MARGIN;
+  if (state.arrow === ai.id && (!oppHere || pastThem)) {
+    navigate(ai, state, me, out); // nothing between me and my goal: run for it
+    return;
+  }
+  if (!oppHere) return;
+  if (dodge(ai, state, me, out, rand)) return;
+  if (!me.armed) {
+    unarmed(ai, state, me, seen, out, rand);
+    return;
+  }
+  if (ai.calmT > CALM_TICKS && overWall(ai, state, me, seen, out)) return; // a long standoff across a wall: go over it
+  const tactic = ai.calmT > CALM_TICKS && ai.tactic === 'wait' ? 'rush' : ai.tactic; // a long standoff: go in
+  TACTICS[tactic](ai, state, me, seen, out, rand);
 }
 
 // Run for the goal edge: jump pits and walls, walk off drops, back off for a run-up when stuck.
@@ -107,4 +165,219 @@ function wallAhead(screen, me, dir, open) {
     for (const up of WALL_PROBE_HEIGHTS) if (P.solidAt(screen, col, Math.floor((me.y - up) / TILE), open)) return true;
   }
   return false;
+}
+
+const dist = (me, seen) => Math.abs(seen.x - me.x);
+const toward = (me, seen) => Math.sign(seen.x - me.x) || me.facing;
+const reachOf = (stance) => body.hilt + STANCES[stance].reach; // from the body's center to the blade tip
+const LUNGE_REACH = body.boxes.stand.w / 2 + T.LUNGE_STEP + body.lungeExtend; // their half-width, plus what a lunge adds
+
+// A wall between us, or them up on top of it (B2's step or pillar): jump toward them, as navigate
+// does, rather than walk into it forever. A jump that falls short clings and climbs.
+function overWall(ai, state, me, seen, out) {
+  const dir = toward(me, seen);
+  if (!me.onGround || (me.state !== 'stand' && me.state !== 'run')) return false;
+  if (dist(me, seen) <= WALL_PROBE_MAX && seen.y >= me.y) return false; // they're this side of it, on my level
+  if (!wallAhead(SCREENS[state.screen], me, dir, edgesOpen(state, me))) return false;
+  press(ai, out, 'jump');
+  hold(out, dir);
+  return true;
+}
+
+function setStanceTo(ai, me, target, out) {
+  if (me.stanceT < T.STANCE_CHANGE_TICKS) return;
+  if (me.stance < target) press(ai, out, 'up');
+  else if (me.stance > target) press(ai, out, 'down');
+}
+
+// Walk in stance: let go for one tick in every WALK_CYCLE, so the walk never breaks into a (bladeless) run.
+function walk(ai, out, dir) {
+  ai.walkT = (ai.walkT + 1) % WALK_CYCLE;
+  if (ai.walkT !== 0) hold(out, dir);
+}
+
+// Get within `stopAt` of the opponent: run while far, let go early to plant the blade, then walk in.
+function closeIn(ai, me, seen, out, stopAt) {
+  const d = dist(me, seen), dir = toward(me, seen);
+  if (me.state === 'run') {
+    if (d > stopAt + RUN_LET_GO) hold(out, dir);
+    return;
+  }
+  if (d > RUN_FROM) hold(out, dir);
+  else if (d > stopAt) walk(ai, out, dir);
+}
+
+function finish(ai, me, seen, out) {
+  const d = dist(me, seen), dir = toward(me, seen);
+  if (me.armed) {
+    setStanceTo(ai, me, 0, out); // only a low blade reaches someone on the floor
+    if (d > FINISH_CLOSE) walk(ai, out, dir);
+    return;
+  }
+  if (d <= T.NECKSNAP_RANGE - SNAP_MARGIN) press(ai, out, 'attack');
+  else hold(out, dir);
+}
+
+function rush(ai, state, me, seen, out, rand) {
+  const d = dist(me, seen);
+  if (seen.state === 'knocked') {
+    finish(ai, me, seen, out);
+    return;
+  }
+  if (state.events.some((e) => e.type === 'clash') && rand() < RUSH_FLIP_CHANCE) ai.rushStance = ai.rushStance === 0 ? 1 : 0;
+  setStanceTo(ai, me, ai.rushStance, out);
+  if (ai.p.throwChance && rand() < ai.p.throwChance && d > RUSH_THROW_MIN && d < RUSH_THROW_MAX && me.state === 'stand' && !ai.last.up && !ai.last.attack) {
+    out.up = true;
+    out.attack = true;
+    return;
+  }
+  if (me.state === 'stand' && d <= reachOf(me.stance) + LUNGE_REACH) {
+    press(ai, out, 'attack');
+    return;
+  }
+  closeIn(ai, me, seen, out, RUSH_STOP);
+}
+
+function wait(ai, state, me, seen, out, rand) {
+  const d = dist(me, seen), dir = toward(me, seen);
+  if (seen.state === 'knocked' || !seen.armed) {
+    rush(ai, state, me, seen, out, rand);
+    return;
+  }
+  if (drawIn(ai, me, seen, out, rand)) return;
+  setStanceTo(ai, me, seen.stance, out); // match their height to block
+  const engageAt = reachOf(me.stance) + reachOf(seen.stance) - ENGAGE_CROSS;
+  if (me.stance !== seen.stance) {
+    if (d < engageAt + MISMATCH_GAP) walk(ai, out, -dir); // mismatched: keep out of reach until matched
+    return;
+  }
+  const recovering = seen.state === 'lunge' && seen.t > T.LUNGE_STARTUP_TICKS + T.LUNGE_ACTIVE_TICKS;
+  if (recovering && d <= reachOf(me.stance) + LUNGE_REACH && me.state === 'stand') {
+    press(ai, out, 'attack');
+    return;
+  }
+  if (d <= engageAt + ENGAGE_SLACK && me.stanceT >= T.STANCE_CHANGE_TICKS && rand() < SWEEP_CHANCE) {
+    press(ai, out, me.stance < 2 ? 'up' : 'down'); // blades crossed: sweep across theirs
+    return;
+  }
+  if (d > engageAt + ENGAGE_SLACK) closeIn(ai, me, seen, out, engageAt);
+}
+
+// A draw disarm (the Waiter's): against a low or high blade held still on the same floor, from out of
+// reach, now and then match it, run in and let go where stopping plants the blade level with theirs,
+// DRAW_CROSS across it and short of their reach to the body. Letting go ends the hunt.
+function drawIn(ai, me, seen, out, rand) {
+  if (!ai.p.drawChance) return false;
+  const d = dist(me, seen), drawAt = 2 * reachOf(seen.stance) - DRAW_CROSS;
+  const still = seen.state === 'stand' && ai.seen[1]?.x === seen.x; // not moving: the next snapshot has them in the same place
+  const target = still && seen.stance !== 1 && seen.y === me.y;
+  const moving = me.state === 'stand' || me.state === 'run';
+  if (!ai.drawing) ai.drawing = target && moving && d >= drawAt + DRAW_RUN_UP && rand() < ai.p.drawChance;
+  else if (!target || !moving) ai.drawing = false;
+  if (!ai.drawing) return false;
+  setStanceTo(ai, me, seen.stance, out);
+  if (d <= drawAt) ai.drawing = false;
+  else hold(out, toward(me, seen));
+  return true;
+}
+
+function aerial(ai, state, me, seen, out, rand) {
+  const d = dist(me, seen), dir = toward(me, seen);
+  if (me.state === 'air') {
+    hold(out, dir);
+    if (me.vy > 0 && d < DIVE_RANGE) press(ai, out, 'attack');
+    return;
+  }
+  if (me.armed) setStanceTo(ai, me, 2, out);
+  if (me.state === 'stand' && d >= JUMP_MIN && d <= JUMP_MAX) {
+    press(ai, out, 'jump');
+    hold(out, dir);
+    return;
+  }
+  if (d < JUMP_MIN) walk(ai, out, -dir);
+  else closeIn(ai, me, seen, out, AERIAL_STOP);
+}
+
+function throwSword(ai, state, me, seen, out, rand) {
+  const d = dist(me, seen);
+  const room = P.headroomFree(SCREENS[state.screen], me.x, me.y, T.THROW_HEADROOM);
+  if (room && d > THROW_MIN && d < THROW_MAX && me.state === 'stand' && seen.state !== 'crouch' && !ai.last.up && !ai.last.attack) {
+    out.up = true;
+    out.attack = true;
+    return;
+  }
+  wait(ai, state, me, seen, out, rand);
+}
+
+function sweepIn(ai, state, me, seen, out, rand) {
+  const d = dist(me, seen), dir = toward(me, seen);
+  if (seen.armed && seen.stance !== 2) {
+    wait(ai, state, me, seen, out, rand); // only a high blade lets a roll-and-sweep in
+    return;
+  }
+  if (me.state === 'roll') {
+    if (d < ROLL_SWEEP_RANGE) press(ai, out, 'attack');
+    return;
+  }
+  if (me.state === 'run' && d < ROLL_FROM) {
+    press(ai, out, 'down');
+    hold(out, dir);
+    return;
+  }
+  hold(out, dir);
+}
+
+const TACTICS = { rush, wait, aerial, throw: throwSword, sweep: sweepIn };
+
+function nearestSword(state, me) {
+  let best = null;
+  for (const s of state.swords) if (s.state !== 'thrown' && (!best || Math.abs(s.x - me.x) < Math.abs(best.x - me.x))) best = s;
+  return best;
+}
+
+function unarmed(ai, state, me, seen, out, rand) {
+  const d = dist(me, seen), dir = toward(me, seen);
+  const sword = nearestSword(state, me);
+  if (sword) {
+    const sd = Math.abs(sword.x - me.x), sdir = Math.sign(sword.x - me.x);
+    if (sd < SWORD_SEEK_RANGE && (sdir !== dir || sd < d - SWORD_CLEAR)) { // not on the far side of the opponent
+      if (sword.state === 'floor' && sd <= T.PICKUP_RANGE - PICKUP_MARGIN) press(ai, out, 'down');
+      else if (sd > SWORD_STILL) hold(out, sdir);
+      return;
+    }
+  }
+  if (seen.state === 'knocked') {
+    finish(ai, me, seen, out);
+    return;
+  }
+  if (!seen.armed) {
+    if (d <= PUNCH_RANGE) press(ai, out, 'attack');
+    else hold(out, dir);
+    return;
+  }
+  aerial(ai, state, me, seen, out, rand); // against a blade, come in from above
+}
+
+// A thrown sword on its way: a mid or high blade deflects it (hold still), otherwise duck.
+function dodge(ai, state, me, out, rand) {
+  const s = state.swords.find((w) => w.state === 'thrown' && w.owner !== ai.id && Math.sign(me.x - w.x) === Math.sign(w.vx) && Math.abs(me.x - w.x) < DODGE_LOOKAHEAD);
+  if (!s) {
+    ai.dodgeFor = null;
+    return false;
+  }
+  if (ai.dodgeFor !== s.id) {
+    ai.dodgeFor = s.id;
+    ai.dodging = rand() < ai.p.dodge;
+  }
+  if (!ai.dodging) return false;
+  if (me.armed && me.stance >= 1 && me.state === 'stand') return true;
+  out.down = true;
+  return true;
+}
+
+function getUp(ai, state, me, out) {
+  if (me.t < T.KNOCKDOWN_TICKS) return;
+  const sword = !me.armed && nearestSword(state, me);
+  if (sword && sword.state === 'floor' && Math.abs(sword.x - me.x) < ROLLUP_SWORD_RANGE) hold(out, Math.sign(sword.x - me.x));
+  else out.up = true;
 }
