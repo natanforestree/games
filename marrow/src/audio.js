@@ -1,6 +1,7 @@
 // Marrow's sound, all generated live with Web Audio (there are no audio files): a low drone that
 // swells as the fighters close in, and wet, metallic effects for what happens in a match. Browsers
-// only allow audio after a key press, so start() is called on the first one. M mutes, remembered.
+// only allow audio after a key press, so start() is called from inside the key press's own event
+// (main.js). M mutes, remembered.
 const MUTE_KEY = 'marrow-muted';
 
 export function createAudio(storage) {

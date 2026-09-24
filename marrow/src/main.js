@@ -33,7 +33,12 @@ const leave = () => {
 };
 addEventListener('blur', leave);
 addEventListener('focus', () => (away = false));
-addEventListener('keydown', () => (away = false));
+// Sound may only start inside a key press's own event (Safari insists), not in a later frame. Esc
+// doesn't count as user activation to browsers, and Cmd/Ctrl shortcuts aren't for the game.
+addEventListener('keydown', (e) => {
+  away = false;
+  if (e.code !== 'Escape' && !e.metaKey && !e.ctrlKey) audio.start();
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     leave();
@@ -58,7 +63,6 @@ async function boot() {
   let pending = new Set(); // UI presses wait for the next tick, even on frames that run none
   const frame = (now) => {
     const ui = input.takeUI();
-    if (ui.size) audio.start(); // browsers allow sound only after a key press
     if (ui.has('mute')) audio.toggleMute();
     for (const a of ui) pending.add(a);
     const n = clock.ticks(now) * speed;
