@@ -1,7 +1,7 @@
 # Last Light: design spec
 
 **Date:** 2026-09-24
-**Status:** Approved in conversation (2026-09-24), awaiting Nathan's review of this written spec
+**Status:** Approved by Nathan (2026-09-24). The plan is `docs/superpowers/plans/2026-09-24-last-light.md`; its "Refinements to the spec" section records what was decided while planning (from a working prototype).
 
 A first-person wave-survival shooter for the games site (`natanforestree.github.io/games/`). You hold a cabin in a snowy clearing through one winter night, from dusk to dawn, against pale hungry things that come out of the trees. It's pixel art, drawn by a Wolfenstein-style raycaster, and it has to feel **super smooth**: that's Nathan's first requirement, and it shapes the engine.
 
