@@ -9,7 +9,7 @@ import { SCREENS } from './level.js';
 // (worlds/common.lua), so this stays 1/4. The fog is a seamless 320 px tile at 1/2, drifting.
 const FAR_PARALLAX = 0.25;
 const FOG_PARALLAX = 0.5;
-const FOG_DRIFT = 0.05; // px per frame
+const FOG_DRIFT = 0.05; // px per tick
 
 // The victory screens' floor, where the Maw sheet's own floor line (maw.json's `floor`) lands.
 const VICTORY_FLOOR_Y = 150;

@@ -27,7 +27,9 @@ export function createRenderer(canvas, { debug = false } = {}) {
   addEventListener('resize', fit);
   fit();
   const makeCanvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
-  let assets = null, fx = null, frame = 0, lastState = null;
+  // anim counts simulation ticks: the cosmetic animation (fog drift, living details, the GO sinew, the
+  // blink) runs on it rather than on drawn frames, so it runs at one speed at 60, 120 or 144 Hz.
+  let assets = null, fx = null, anim = 0, lastState = null;
   // A new state object is a new match: clean the floors before it's first ticked or drawn,
   // so the old match's stains never flash on the new match's first frame.
   const freshMatch = (state) => {
@@ -43,6 +45,7 @@ export function createRenderer(canvas, { debug = false } = {}) {
     },
     // Called once per simulation tick with that tick's events.
     tick(state, events) {
+      anim++;
       if (!fx) return;
       freshMatch(state);
       fx.onEvents(events);
@@ -61,7 +64,6 @@ export function createRenderer(canvas, { debug = false } = {}) {
       ctx.fillText(detail, VIEW_W / 2, 92);
     },
     draw(game) {
-      frame++;
       ctx.imageSmoothingEnabled = false;
       const state = game.state;
       if (!assets) {
@@ -70,7 +72,7 @@ export function createRenderer(canvas, { debug = false } = {}) {
       }
       freshMatch(state);
       const world = worldOf(assets, game);
-      drawWorld(ctx, state, world, fx, frame);
+      drawWorld(ctx, state, world, fx, anim);
       const showMatch = game.mode === 'match' || game.mode === 'result' || game.mode === 'complete';
       if (showMatch && !state.slide) {
         drawSwords(ctx, state, assets);
@@ -79,11 +81,11 @@ export function createRenderer(canvas, { debug = false } = {}) {
         drawMaw(ctx, state, world);
       }
       if (game.mode === 'match') {
-        drawHUD(ctx, state, assets, world, frame);
+        drawHUD(ctx, state, assets, world, anim);
         drawTimer(ctx, game.timer, world);
       }
       if (debug) drawHitboxes(ctx, state);
-      drawScreens(ctx, game, world, frame);
+      drawScreens(ctx, game, world, anim);
     },
   };
 }
