@@ -64,6 +64,7 @@ export function resolveCombat(state, env) {
   thrownHits(state, hits);
   for (const [f, cause] of hits) kill(state, f, cause);
   unarmedHits(state, env);
+  state.swords = state.swords.filter((s) => !s.gone); // swords lost down a pit, or thrown into a body
 }
 
 function bladeVsBlade(state, env, a, b) {
@@ -137,7 +138,6 @@ function moveSwords(state, env) {
     if (s.state === 'thrown') flySword(state, s, env.screen);
     else if (s.state === 'loose') fallSword(s, env.screen);
   }
-  state.swords = state.swords.filter((s) => !s.gone);
 }
 
 // Thrown swords fly straight, without gravity. A wall (or a closed screen edge) drops them.
@@ -172,7 +172,6 @@ function thrownHits(state, hits) {
       }
     }
   }
-  state.swords = state.swords.filter((s) => !s.gone);
 }
 
 function fallSword(s, screen) {

@@ -41,7 +41,7 @@ export function updateMatch(state) {
       startSlide(state, f);
       return;
     }
-    Object.assign(f, { state: 'gone', t: 0, respawnT: T.OFFSCREEN_RESPAWN_TICKS, heldBy: null });
+    sendOff(f);
   }
 }
 
@@ -73,12 +73,16 @@ export function placeFighter(f, x, y) {
   setStance(f, 1, true);
 }
 
+// Off the screen for now (ran off an edge, or left behind by a slide): back after OFFSCREEN_RESPAWN_TICKS.
+function sendOff(f) {
+  Object.assign(f, { state: 'gone', t: 0, respawnT: T.OFFSCREEN_RESPAWN_TICKS, heldBy: null });
+}
+
 function startSlide(state, f) {
   state.phase = 'slide';
   state.slide = { from: state.screen, to: state.screen + f.dir, dir: f.dir, t: 0, holder: f.id };
   state.swords = [];
-  const other = state.fighters[1 - f.id];
-  Object.assign(other, { state: 'gone', t: 0, respawnT: T.OFFSCREEN_RESPAWN_TICKS, heldBy: null });
+  sendOff(state.fighters[1 - f.id]);
   state.events.push({ type: 'slide', dir: f.dir, to: state.slide.to });
 }
 
@@ -95,7 +99,7 @@ export function updateSlide(state) {
   const screen = SCREENS[state.screen];
   const x = s.dir > 0 ? T.SLIDE_ENTRY_X : VIEW_W - T.SLIDE_ENTRY_X;
   const ys = P.surfacesAt(screen, x);
-  const y = ys.length ? ys.reduce((best, v) => (Math.abs(v - f.y) < Math.abs(best - f.y) ? v : best)) : P.findSpawn(screen, x, f.y).y;
+  const y = ys.length ? P.nearestY(ys, f.y) : P.findSpawn(screen, x, f.y).y;
   Object.assign(f, { x, y, vx: 0, vy: 0, state: 'run', t: 0, onGround: true, moveDir: s.dir, moveT: T.RUN_AFTER_TICKS, facing: s.dir });
   if (state.screen === victoryIndex(f.dir)) {
     state.phase = 'maw';
@@ -131,7 +135,7 @@ function pinWinner(state, w) {
   w.vy = 0;
   if (!P.isOnGround(w, screen)) {
     const ys = P.surfacesAt(screen, w.x);
-    if (ys.length) w.y = ys.reduce((best, y) => (Math.abs(y - w.y) < Math.abs(best - w.y) ? y : best));
+    if (ys.length) w.y = P.nearestY(ys, w.y);
   }
   w.state = 'stand';
   w.t = 0;

@@ -158,6 +158,11 @@ export function surfacesAt(screen, x) {
   return ys;
 }
 
+// Of the surface heights ys (at least one), the one nearest y; the first of them on a tie.
+export function nearestY(ys, y) {
+  return ys.reduce((best, v) => (Math.abs(v - y) < Math.abs(best - y) ? v : best));
+}
+
 // The nearest safe standing spot to targetX, fully inside the screen (SPAWN_MARGIN from each edge),
 // taking the surface closest to preferY where a column has several.
 export function findSpawn(screen, targetX, preferY) {
@@ -167,7 +172,7 @@ export function findSpawn(screen, targetX, preferY) {
     for (const x of d === 0 ? [tx] : [tx + d, tx - d]) {
       if (x < min || x > max) continue;
       const ys = surfacesAt(screen, x);
-      if (ys.length) return { x, y: ys.reduce((best, y) => (Math.abs(y - preferY) < Math.abs(best - preferY) ? y : best)) };
+      if (ys.length) return { x, y: nearestY(ys, preferY) };
     }
   }
   throw new Error(`no safe floor on screen ${screen.name}`);
