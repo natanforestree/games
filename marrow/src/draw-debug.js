@@ -49,7 +49,7 @@ export function drawHitboxes(ctx, state) {
   for (const f of state.fighters) {
     const box = P.fighterBox(f);
     if (!box) continue;
-    ctx.strokeStyle = GLOW[f.id];
+    ctx.strokeStyle = '#ffffff'; // contrasting with GLOW's fill, so the outline reads over a sprite
     ctx.lineWidth = 1;
     ctx.strokeRect(Math.round(box.x0) + 0.5, Math.round(box.y0) + 0.5, box.x1 - box.x0 - 1, box.y1 - box.y0 - 1);
     bladeLine(ctx, f, screen, '#ff3b3b');

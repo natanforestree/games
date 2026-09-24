@@ -73,7 +73,10 @@ export function updateFighter(state, f, held, ctx) {
   }
   f.upHeldT = held.up ? f.upHeldT + 1 : 0;
   f.upPressT = pressed.up ? 0 : Math.min(99, f.upPressT + 1);
-  if (!isActive(f)) return;
+  if (!isActive(f)) {
+    f.t++; // the death animation runs on while waiting to respawn
+    return;
+  }
   f.prevH = bladeHeight(f);
   f.t++;
   f.drawT = Math.min(99, f.drawT + 1);
