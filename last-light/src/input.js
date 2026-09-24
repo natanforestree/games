@@ -126,7 +126,7 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   });
   doc?.addEventListener('pointerlockchange', () => {
     input.locked = !!doc.pointerLockElement && doc.pointerLockElement === input.element;
-    if (!input.locked) input.releaseAll();
+    input.releaseAll(); // gained or lost: nothing pressed before the change carries across it
   });
   return input;
 }

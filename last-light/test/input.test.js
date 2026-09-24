@@ -104,6 +104,21 @@ test('losing focus or the pointer lock releases every key and the trigger', () =
   assert.equal(s.forward, 0);
 });
 
+test('a key pressed while paused does not carry into the resumed night', () => {
+  const { win, doc, input } = setup();
+  win.fire('keydown', { code: 'KeyW' });
+  win.fire('mousedown', { button: 0 });
+  doc.pointerLockElement = null;
+  doc.fire('pointerlockchange');
+  win.fire('keydown', { code: 'KeyR' });
+  win.fire('keydown', { code: 'KeyF' });
+  win.fire('keydown', { code: 'Digit2' });
+  doc.pointerLockElement = input.element;
+  doc.fire('pointerlockchange');
+  const s = input.sample();
+  assert.deepEqual([s.forward, s.fire, s.reload, s.flare, s.weapon], [0, false, 0, 0, 0]);
+});
+
 test('Cmd shortcuts are left to the browser, and Cmd releases held keys', () => {
   const { win, input } = setup();
   win.fire('keydown', { code: 'KeyW' });
