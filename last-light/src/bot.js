@@ -69,7 +69,8 @@ export function botIntents(state, bot, dt) {
       out.run = true;
     }
   } else if (n.phase === 'lull') {
-    const pick = state.pickups.find((k) => k.active);
+    let pick = null;
+    for (let i = 0; i < state.pickups.length; i++) if (state.pickups[i].active) { pick = state.pickups[i]; break; }
     const porch = state.map.start;
     let gx, gy;
     if (pick && !(pick.kind === 0 && g.flares >= 5)) {
