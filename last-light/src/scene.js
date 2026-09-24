@@ -25,7 +25,7 @@ export const SPRITE_ANIMS = {
   'pickup-shotgun': ['idle'],
 };
 const MAX_SPRITES = 128;
-const SPRAY_Z = [0.25, 0.85, 0.4, 1.3]; // where on each kind the spray comes from
+export const SPRAY_Z = [0.25, 0.7, 0.4, 1.3]; // where on each kind (crawler, gaunt, leaper, mother) the spray comes from
 const PICKUP_SPRITE = ['pickup-flare', 'pickup-shells', 'pickup-shotgun'];
 const SIDE_FROM = (50 * Math.PI) / 180, SIDE_TO = (130 * Math.PI) / 180;
 

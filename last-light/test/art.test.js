@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { WALLS } from '../src/map.js';
 import { FLOORS } from '../src/assets.js';
-import { SPRITE_ANIMS } from '../src/scene.js';
+import { SPRITE_ANIMS, SPRAY_Z } from '../src/scene.js';
+import { KINDS } from '../src/creatures.js';
 import { HAND_FRAMES, HUD_ICONS } from '../src/hud.js';
 
 const file = (f) => new URL(`../${f}`, import.meta.url);
@@ -71,6 +72,15 @@ test('creature sizes: a crawler about knee-high, a gaunt a little taller than yo
   assert.ok(sprites.mother.height >= 2, `mother ${sprites.mother.height}`);
   const order = ['crawler', 'leaper', 'gaunt', 'mother'].map((k) => sprites[k].height);
   assert.deepEqual(order, [...order].sort((a, b) => a - b), 'crawler < leaper < gaunt < mother');
+});
+
+// A hit's spray comes out of the body: above the legs, below the eyes.
+test("a hit's spray comes from a creature's body, a third to three quarters of the way up it", () => {
+  const { sprites } = json('sprites.json');
+  KINDS.forEach((k, i) => {
+    const up = SPRAY_Z[i] / sprites[k].height;
+    assert.ok(up >= 0.35 && up <= 0.75, `${k}: spray at ${SPRAY_Z[i]} is ${up.toFixed(2)} of its ${sprites[k].height} height`);
+  });
 });
 
 test('every hands frame and HUD icon, inside their sheets', () => {
