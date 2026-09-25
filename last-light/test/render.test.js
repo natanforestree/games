@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createRenderer } from '../src/render.js';
 import { chooseView } from '../src/view.js';
 import { parseMap } from '../src/map.js';
-import { createLightmap, beginLight, addLight } from '../src/lightmap.js';
+import { createLightmap, beginLight, addLight, lightAt } from '../src/lightmap.js';
+import { BAYER } from '../src/shade.js';
 import { room } from './helpers.js';
 import { testArt, drawnAt, IDX } from './render-helpers.js';
 import { buildMips } from '../src/assets.js';
@@ -121,6 +122,53 @@ test('a light brightens the snow near it', () => {
   assert.notEqual(r.buffer[y * view.w + x], dark);
 });
 
+// Every snow, floorboard and rafter pixel against the lightmap at the point of the ground or roof it
+// shows: looking down outside and up inside with a light close by, and level with a light 10 cells
+// off (where the renderer reads the light least often). Its shade is within a level of lightAt's.
+test('the snow, the floorboards and the rafters are lit from the lightmap, pixel by pixel', () => {
+  const map = parseMap();
+  const { art, r, lm, frame } = setup(map, 0.05);
+  const { w, h, focal, plane } = view;
+  // Colours two surfaces can both be drawn in (black, in the dark) say nothing about the light.
+  const drawnBy = new Map();
+  for (const i of Object.values(IDX)) for (let l = 0; l < 16; l++) {
+    const v = art.shades.table[(l << 8) | i];
+    drawnBy.set(v, drawnBy.has(v) && drawnBy.get(v) !== i ? -1 : i);
+  }
+  for (const [x0, y0, facing, pitch, lx, ly, kinds] of [
+    [19.5, 22.5, Math.PI / 2, -0.35, 20.2, 22.9, [IDX.snow]],
+    [19.5, 16.5, 0, 0.35, 20.2, 16.9, [IDX.rafters, IDX.planks]],
+    [19.5, 22.5, Math.PI / 2, 0, 19.9, 32.5, [IDX.snow]],
+  ]) {
+    beginLight(lm, 0.2); // never darker than level 3: levels 0 and 1 are the same fog for everything
+    addLight(lm, lx, ly, 0.3, 2, 1); // steep: 2 shade levels a lightmap cell
+    r.draw(frame({ x: x0, y: y0, facing, pitch }));
+    const hz = Math.round(h / 2 + Math.tan(pitch) * focal);
+    const dx = Math.cos(facing), dy = Math.sin(facing);
+    let seen = 0, worst = 0, lo = 15, hi = 0;
+    for (let y = 0; y < h; y++) {
+      if (y === hz) continue;
+      const rowDist = (0.5 * focal) / Math.abs(y + 0.5 - hz);
+      for (let x = 0; x < w; x += 2) {
+        const v = r.buffer[y * w + x], idx = drawnBy.get(v);
+        if (!kinds.includes(idx)) continue;
+        const cam = (2 * x) / w - 1 + 1 / w;
+        const wx = x0 + rowDist * (dx - dy * plane * cam), wy = y0 + rowDist * (dy + dx * plane * cam);
+        const want = Math.min(15, Math.floor(lightAt(lm, wx, wy) * 15 + BAYER[((y & 3) << 2) | (x & 3)]));
+        let off = 16;
+        for (let l = 0; l < 16; l++) if (art.shades.table[(l << 8) | idx] === v) off = Math.min(off, Math.abs(l - want));
+        worst = Math.max(worst, off);
+        lo = Math.min(lo, want);
+        hi = Math.max(hi, want);
+        seen++;
+      }
+    }
+    assert.ok(seen > 1000, `${seen} pixels`);
+    assert.ok(hi - lo >= 8, `the light should vary across the view: ${lo} to ${hi}`);
+    assert.ok(worst <= 1, `a pixel ${worst} levels off (pitch ${pitch})`);
+  }
+});
+
 test('inside the cabin you see rafters overhead, not sky', () => {
   const map = parseMap();
   const { art, r, frame } = setup(map);
@@ -143,4 +191,15 @@ test('falling snow shows outside, never under the roof', () => {
   assert.ok(count() > 20, 'flakes outside');
   r.draw(frame({ x: 19.5, y: 16.5, facing: Math.PI, snow: true, time: 3 }));
   assert.equal(count(), 0, 'none indoors, looking at the wall');
+});
+
+test('looking up outside, snow falls from the top of the view, not from partway up the sky', () => {
+  const map = parseMap();
+  const { art, r, frame } = setup(map);
+  const bands = [0, 0, 0]; // flakes in the top, middle and bottom thirds, over ten moments
+  for (let t = 0; t < 10; t++) {
+    r.draw(frame({ x: 19.5, y: 25.5, facing: Math.PI / 2, pitch: VIEW.maxPitch, snow: true, time: t }));
+    for (let y = 0; y < view.h; y++) for (let x = 0; x < view.w; x++) if (drawnAt(art, r.buffer, view.w, x, y) === IDX.flake) bands[Math.floor((3 * y) / view.h)]++;
+  }
+  assert.ok(bands[0] > bands[2] / 4, `top ${bands[0]}, middle ${bands[1]}, bottom ${bands[2]}`);
 });

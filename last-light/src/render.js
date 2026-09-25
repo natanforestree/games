@@ -16,9 +16,10 @@ import { lightAt, RES } from './lightmap.js';
 
 export const TEX = 32;
 const TOP = LEVELS - 1;
-const FLAKES = 300;
 const SNOW_BOX = 12; // flakes fill a box this many cells across, centred on you
-const SNOW_TOP = 1.3;
+const SNOW_TOP = 3.4; // and fall from this high: above the view's centre across the box, looking all the way up
+const FLAKES = 780; // 300 to every 1.3 cells of height
+const LIGHT_SPAN = 8; // the most pixels along a floor or ceiling row between reads of the light
 
 // Deterministic per-flake numbers in [0, 1).
 function hash(i, k) {
@@ -40,7 +41,7 @@ export function createRenderer(art, map) {
     flakes[i * 4] = hash(i, 1) * SNOW_BOX;
     flakes[i * 4 + 1] = hash(i, 2) * SNOW_BOX;
     flakes[i * 4 + 2] = hash(i, 3); // fall phase
-    flakes[i * 4 + 3] = 0.25 + hash(i, 4) * 0.25; // fall speed, cells per second
+    flakes[i * 4 + 3] = (0.325 + hash(i, 4) * 0.325) / SNOW_TOP; // falling 0.33 to 0.65 cells a second, as a share of the fall
   }
   const hit = createHit();
   let w = 0, h = 0, focal = 1, plane = 1;
@@ -138,16 +139,19 @@ export function createRenderer(art, map) {
       }
 
       // Floor and ceiling, a row at a time: every pixel of a row is at the same depth. Above the
-      // horizon it's sky, except under the cabin roof.
+      // horizon it's sky, except under the cabin roof. Along a row the light changes slowly, so it's
+      // read every `span` pixels and blended in between: a span covers at most one lightmap cell, so
+      // up close (looking down, most of the view) that's LIGHT_SPAN pixels, and near the horizon
+      // every pixel.
       const half = 0.5 * focal;
-      const lmw = lm.w, cur = lm.cur, amb = lm.ambient;
-      const lmMaxX = lm.w - 1.001, lmMaxY = lm.h - 1.001;
       const mw = map.w, mh = map.h, roofed = map.roofed, skyPx = sky.px;
       for (let y = 0; y < h; y++) {
         const below = y >= hz;
         const rowDist = half / (below ? y + 0.5 - hz : hz - y - 0.5);
         let wx = cx + rowDist * rayX[0], wy = cy + rowDist * rayY[0];
         const sx = (rowDist * (rayX[w] - rayX[0])) / w, sy = (rowDist * (rayY[w] - rayY[0])) / w;
+        const span = Math.max(1, Math.min(LIGHT_SPAN, (1 / (RES * Math.sqrt(sx * sx + sy * sy))) | 0));
+        let x0 = 0, x1 = 0, l0 = 0, dl = 0; // the light at x0, and its change a pixel until x1
         const bay = (y & 3) << 2;
         let o = y * w;
         if (!below) {
@@ -161,16 +165,13 @@ export function createRenderer(art, map) {
               continue;
             }
             const idx = rafters[(((wy - my) * TEX) | 0) * TEX + (((wx - mx) * TEX) | 0)];
-            // lightAt, inlined as for the floor below: looking up in the cabin, rafters fill the view.
-            let fx = wx * RES - 0.5, fy = wy * RES - 0.5;
-            if (fx < 0) fx = 0;
-            else if (fx > lmMaxX) fx = lmMaxX;
-            if (fy < 0) fy = 0;
-            else if (fy > lmMaxY) fy = lmMaxY;
-            const ix = fx | 0, iy = fy | 0, tx = fx - ix, i = iy * lmw + ix;
-            const t0 = cur[i] + (cur[i + 1] - cur[i]) * tx;
-            const t1 = cur[i + lmw] + (cur[i + lmw + 1] - cur[i + lmw]) * tx;
-            let l = ((amb + t0 + (t1 - t0) * (fy - iy)) * TOP + BAYER[bay | (x & 3)]) | 0;
+            if (x >= x1) {
+              x0 = x;
+              x1 = x + span;
+              l0 = lightAt(lm, wx, wy);
+              dl = (lightAt(lm, wx + sx * span, wy + sy * span) - l0) / span;
+            }
+            let l = ((l0 + dl * (x - x0)) * TOP + BAYER[bay | (x & 3)]) | 0;
             if (l > TOP) l = TOP;
             buf[o] = table[(l << 8) | idx];
           }
@@ -181,16 +182,13 @@ export function createRenderer(art, map) {
           const mx = wx | 0, my = wy | 0;
           const roof = wx >= 0 && wy >= 0 && mx < mw && my < mh && roofed[my * mw + mx] === 1;
           const idx = (roof ? planks : snow)[(((wy - my) * TEX) | 0) * TEX + (((wx - mx) * TEX) | 0)];
-          // lightAt, inlined: this loop covers half the screen.
-          let fx = wx * RES - 0.5, fy = wy * RES - 0.5;
-          if (fx < 0) fx = 0;
-          else if (fx > lmMaxX) fx = lmMaxX;
-          if (fy < 0) fy = 0;
-          else if (fy > lmMaxY) fy = lmMaxY;
-          const ix = fx | 0, iy = fy | 0, tx = fx - ix, i = iy * lmw + ix;
-          const t0 = cur[i] + (cur[i + 1] - cur[i]) * tx;
-          const t1 = cur[i + lmw] + (cur[i + lmw + 1] - cur[i + lmw]) * tx;
-          let l = ((amb + t0 + (t1 - t0) * (fy - iy)) * TOP + BAYER[bay | (x & 3)]) | 0;
+          if (x >= x1) {
+            x0 = x;
+            x1 = x + span;
+            l0 = lightAt(lm, wx, wy);
+            dl = (lightAt(lm, wx + sx * span, wy + sy * span) - l0) / span;
+          }
+          let l = ((l0 + dl * (x - x0)) * TOP + BAYER[bay | (x & 3)]) | 0;
           if (l > TOP) l = TOP;
           buf[o] = table[(l << 8) | idx];
         }

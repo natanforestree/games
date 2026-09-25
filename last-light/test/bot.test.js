@@ -32,3 +32,28 @@ test('the bot looks up at the Mother, never past how far you can look', () => {
   }
   assert.ok(highest > 0.1, `looked up to ${highest}`);
 });
+
+test('the bot only fires once the crosshair is on a crawler, not over its back', () => {
+  const s = quietState();
+  spawnCreature(s, CRAWLER, 19.5, 21.5); // straight ahead, 1 cell off: level passes over it
+  const bot = createBot();
+  const first = botIntents(s, bot, DT);
+  assert.equal(first.fire, false, 'still looking level');
+  let fired = false;
+  for (let i = 0; i < 20 && !fired; i++) fired = botIntents(s, bot, DT).fire;
+  assert.ok(fired, `fired once looking down, at ${bot.pitch}`);
+});
+
+test('a crawler at its feet: the bot looks down only as far as you can', () => {
+  const s = quietState();
+  const c = spawnCreature(s, CRAWLER, 19.5, 21);
+  const bot = createBot();
+  for (let i = 0; i < 0.5 / DT; i++) {
+    c.x = s.player.x; // held half a cell in front, where it wants to look further down than that
+    c.y = s.player.y + 0.5;
+    c.hp = 1e9;
+    step(s, botIntents(s, bot, DT));
+    assert.ok(bot.pitch >= -VIEW.maxPitch, `${bot.pitch}`);
+  }
+  assert.equal(bot.pitch, -VIEW.maxPitch);
+});
