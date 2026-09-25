@@ -86,25 +86,25 @@ Every upgrade you own was bought with a walk into the dark.
 - **Cost.** The *n*-th upgrade of the night (counting from 0) costs **6 + 4n** embers: 6, 10, 14, 18, 22, 26, …
 - **Nothing pauses.** The lull clock runs while you choose, and the stove keeps healing you.
 - **The display while choosing.**
-  - Three cards across the middle of the view, above the hands. Each shows its key (1, 2, 3), an icon, the name and a short line.
-  - Above them: *"The fire shows you three"* and the cost.
+  - A dark panel in the middle of the view, with a row for each card: its key (1, 2, 3), its icon, its name, and its short line under the name.
+  - Above the rows: *"The fire shows you three"*, and *"Costs 6 embers"* with the real cost.
 - **The display at the fire without enough embers:** a line reading *"The fire wants 4 more embers"*, with the real number.
 - **Feedback.** Taking an upgrade plays a bright sound, and a banner shows the upgrade's name.
 
 ## 3. The twelve upgrades
 
-Each is taken at most once. The card's short line is in quotes.
+Each is taken at most once. The card's short line is in quotes. Names are at most 20 characters and lines at most 36, so a row fits in a 300-pixel panel in Silkscreen at 8 px (the longest line measures 185 px).
 
 | # | Family | Name | Card line | Exact effect |
 |---|---|---|---|---|
 | 0 | Rifle | Through-and-through | "Rounds pass through one creature." | A rifle round that hits a creature carries on along its line, and also hits the next creature on it before a wall or the rifle's range, for the same damage |
 | 1 | Rifle | Quick lever | "Work the lever a third faster." | The rifle's time between shots goes from 0.45 s to 0.3 s. The lever animation and its sound speed up to match |
-| 2 | Rifle | Steady hands | "Stand still, and your next shot hits twice as hard." | Once you've been still (moving under 0.1 cells/s) for 0.5 s, a rifle shot does double damage. The crosshair warms in colour while it's ready |
+| 2 | Rifle | Steady hands | "Stand still: next shot hits double." | Once you've been still (moving under 0.1 cells/s) for 0.5 s, a rifle shot does double damage. The crosshair warms in colour while it's ready |
 | 3 | Rifle | Deep magazine | "The rifle holds 12." | Rifle capacity goes from 8 to 12, and the 4 new rounds come loaded. The ammo row shows 12 |
-| 4 | Shotgun | Slugs | "One heavy slug: long reach, no spread." | The shotgun fires one slug: 40 damage, range 20, no spread, and no fall-off with distance |
-| 5 | Shotgun | Dragon's breath | "Your shots set them burning." | A shotgun pellet or slug that hits sets the creature burning (below) |
+| 4 | Shotgun | Slugs | "One heavy slug: long reach." | The shotgun fires one slug: 40 damage, range 20, no spread, and no fall-off with distance |
+| 5 | Shotgun | Dragon's breath | "Your shotgun sets them burning." | A shotgun pellet or slug that hits sets the creature burning (below) |
 | 6 | Flares | Magnesium | "Flares and fire burn twice as long." | A flare burns 20 s, not 10, and burning lasts 6 s, not 3 |
-| 7 | Flares | Deep pockets | "Carry 8 flares. Each lull brings two." | Flare capacity goes from 5 to 8, and the lull's flare pickup gives 2 |
+| 7 | Flares | Deep pockets | "Carry 8 flares; lulls bring two." | Flare capacity goes from 5 to 8, and the lull's flare pickup gives 2 |
 | 8 | Lantern | Wide wick | "Your light reaches further." | The lantern's clear light reaches 3.5 cells, not 2.5, and fades out by 9, not 7 |
 | 9 | Hunter | Long reach | "Take embers from 2 cells away." | Ember collection reach goes from 0.6 to 2 cells |
 | 10 | Hunter | Warm hands | "Each ember heals you a little." | Taking an ember heals 2 health for each ember of its value, up to your maximum, even mid-wave |
@@ -140,7 +140,8 @@ Each is taken at most once. The card's short line is in quotes.
   - setting a creature alight: a short roar where it is.
 - **Art** (Lua through Aseprite, deterministic, like all Last Light art):
   - an **ember** sprite in `sprites.lua`: a coal of glowing fire colours, three frames of flicker, 0.12 cells tall;
-  - HUD icons in `hud.lua`: an **ember** (7×7), the **warm crosshair** variant (7×7), and **12 upgrade icons** (12×12), one per upgrade, drawn as rows of characters like the existing icons.
+  - HUD icons in `hud.lua`: an **ember** (7×7), the **warm crosshair** variant (7×7), and **12 upgrade icons** (12×12), one per upgrade, named `up-` and the upgrade's key, drawn as rows of characters like the existing icons, in light colours so they read on the dark panel;
+  - a named palette colour for **sparks**, `spark` (the glowing `fire3`), in `palette.lua`.
 - **Cooling on screen.** The scene draws a cooling ember with a lower glow level, and flickers it in its last 3 s. Its light dims with it.
 
 ## 5. The bot
@@ -255,7 +256,7 @@ These are starting values, to be tuned with the bot's picks-per-night check and 
 | Ember reach | 0.6 cells (2 with Long reach) |
 | Gentle drift | 3 cells/s |
 | Ember pool | 48 |
-| Ember light | clear to 0.15 cells, dark by 1.2, intensity 0.35 (scaled by value, up to ×1.5) |
+| Ember light | clear to 0.2 cells, dark by 1.5, intensity 0.5 (scaled by value, up to ×1.5) |
 | Upgrade cost | 6 + 4n |
 | Offer | 3 cards |
 | Burning | 4 damage/s for 3 s (6 s with Magnesium) |
