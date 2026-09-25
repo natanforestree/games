@@ -86,7 +86,8 @@ test('keys 1 to 3 take a card: 6 embers, then 10, then 14; it applies at once, a
 
 test('a key past the offered cards, or with no offer, does nothing', () => {
   const s = atFire(6);
-  run(s, DT, intents({ pick: 1 })); // the offer is drawn this update, and taken
+  run(s, DT); // the offer is drawn this update
+  run(s, DT, intents({ pick: 1 })); // then taken next update
   const left = s.carried;
   run(s, DT, intents({ pick: 3 }));
   assert.equal(s.carried, left);
@@ -116,6 +117,7 @@ test('at the fire, keys 1 and 2 pick cards and switch no guns; away from it they
   giveShotgun(s);
   s.gun.current = s.gun.next = RIFLE_ID; // holding the rifle, the shotgun on your back
   s.gun.switching = 0;
+  run(s, DT); // the offer is drawn this update
   run(s, DT, intents({ weapon: 2, pick: 2 })); // key 2, as the keyboard gives it: both at once
   assert.equal(s.gun.switching, 0, 'no switch while choosing');
   assert.equal(s.bought, 1, 'the card was taken');
@@ -152,6 +154,19 @@ test('every upgrade once: after all twelve the fire offers nothing', () => {
   s.carried = 999;
   run(s, DT);
   assert.equal(s.offerN, 0);
+});
+
+test('a key pressed in the update that first draws the offer takes nothing, but next update it does', () => {
+  const s = atFire(6);
+  run(s, DT, intents({ pick: 1 })); // offer drawn this update, pick ignored
+  assert.equal(s.carried, 6, 'no embers spent');
+  assert.equal(s.bought, 0, 'no card taken');
+  assert.ok(s.offerN > 0, 'offer is showing');
+  const id = s.offer[0];
+  run(s, DT, intents({ pick: 1 })); // same card pick now works
+  assert.equal(s.carried, 0);
+  assert.equal(s.bought, 1);
+  assert.equal(s.taken[0], id);
 });
 
 test('the upgrade list: twelve, in five families, each with a name and a card line short enough for a card', () => {

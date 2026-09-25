@@ -80,9 +80,12 @@ function take(state, id) {
 }
 
 // One update: whether you're at the fire, drawing an offer when there's none and you can afford one,
-// and taking the card your key picked (intents.pick, 1 to 3). While state.choosing, keys 1 and 2 don't
-// switch guns (weapons.js); it stays true through the update that took a card.
+// and taking the card your key picked (intents.pick, 1 to 3). A key only takes a card that was already
+// showing (an offer drawn, or first shown, this update can't be taken until the next). While
+// state.choosing, keys 1 and 2 don't switch guns (weapons.js); it stays true through the update that
+// took a card.
 export function updateChoosing(state, intents) {
+  const shown = state.choosing;
   const p = state.player, stove = state.stove;
   let near = false;
   if (state.night.phase === 'lull' && stove) {
@@ -93,5 +96,5 @@ export function updateChoosing(state, intents) {
   if (near && state.offerN === 0 && state.carried >= upgradeCost(state.bought)) drawOffer(state);
   state.choosing = near && state.offerN > 0;
   const pick = intents.pick | 0;
-  if (state.choosing && pick >= 1 && pick <= state.offerN) take(state, state.offer[pick - 1]);
+  if (shown && state.choosing && pick >= 1 && pick <= state.offerN) take(state, state.offer[pick - 1]);
 }
