@@ -75,7 +75,7 @@ export function castRay(map, px, py, rdx, rdy, hit, maxDist = 64) {
 const sightHit = createHit();
 export function canSee(map, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay;
-  const d = Math.hypot(dx, dy);
+  const d = Math.sqrt(dx * dx + dy * dy);
   if (d < 1e-9) return true;
   return !castRay(map, ax, ay, dx / d, dy / d, sightHit, d);
 }

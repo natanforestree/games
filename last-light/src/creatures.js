@@ -106,7 +106,7 @@ const dir = { x: 0, y: 0 };
 function heading(state, c, sees) {
   const p = state.player;
   if (!sees && flowDir(state.field, state.map, c.x, c.y, dir)) return true;
-  const dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy) || 1;
+  const dx = p.x - c.x, dy = p.y - c.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
   dir.x = dx / d;
   dir.y = dy / d;
   return true;
@@ -115,7 +115,7 @@ function heading(state, c, sees) {
 function walk(state, c, vx, vy, dt) {
   const hitWall = moveBody(state.map, c, vx * dt, vy * dt);
   for (const prop of state.map.props) pushOutOfCircle(c, prop.x, prop.y, prop.radius);
-  const moved = Math.hypot(c.x - c.px, c.y - c.py);
+  const mx = c.x - c.px, my = c.y - c.py, moved = Math.sqrt(mx * mx + my * my);
   c.moving = moved > 1e-4;
   if (c.moving) {
     c.heading = Math.atan2(vy, vx);
@@ -142,7 +142,7 @@ function update(state, c, dt) {
     if (c.dying <= 0) c.alive = false;
     return;
   }
-  const dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy);
+  const dx = p.x - c.x, dy = p.y - c.y, d = Math.sqrt(dx * dx + dy * dy);
   const touch = d - c.radius - p.radius; // gap between the two circles
   const sees = d < CREATURES.sightRange && canSee(state.map, c.x, c.y, p.x, p.y);
   const slow = inFlare(state, c.x, c.y) ? FLARE.slow : 1;
@@ -178,7 +178,7 @@ function update(state, c, dt) {
         const ux = dx / d, uy = dy / d;
         const radial = Math.max(-1, Math.min(1, d - t.circleAt));
         let vx = -uy * c.circleDir + ux * radial, vy = ux * c.circleDir + uy * radial;
-        const l = Math.hypot(vx, vy) || 1;
+        const l = Math.sqrt(vx * vx + vy * vy) || 1;
         vx = (vx / l) * t.circleSpeed * slow;
         vy = (vy / l) * t.circleSpeed * slow;
         if (walk(state, c, vx, vy, dt)) c.circleDir = -c.circleDir;
@@ -200,7 +200,7 @@ function update(state, c, dt) {
         c.t -= dt;
         c.lift = 0.35 * Math.sin(Math.PI * Math.min(1, 1 - c.t / t.leapTime));
         const wall = walk(state, c, c.leapX * t.leapSpeed * slow, c.leapY * t.leapSpeed * slow, dt);
-        const gap = Math.hypot(p.x - c.x, p.y - c.y) - c.radius - p.radius;
+        const lx = p.x - c.x, ly = p.y - c.y, gap = Math.sqrt(lx * lx + ly * ly) - c.radius - p.radius;
         if (!c.leapHit && gap <= 0.15) {
           c.leapHit = true;
           strike(state, c, t.pounce);

@@ -22,7 +22,7 @@ export function createLightmap(map) {
 function lit(map, ax, ay, bx, by) {
   if (canSee(map, ax, ay, bx, by)) return true;
   // Walk the segment in small steps, letting light through window cells only.
-  const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d * 8);
+  const d = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)), n = Math.ceil(d * 8);
   for (let i = 1; i < n; i++) {
     const x = Math.floor(ax + ((bx - ax) * i) / n), y = Math.floor(ay + ((by - ay) * i) / n);
     if (x < 0 || y < 0 || x >= map.w || y >= map.h) return false;
@@ -40,7 +40,7 @@ export function bakeStatic(lm, map, lights) {
       const x = (sx + 0.5) / RES, y = (sy + 0.5) / RES;
       let v = 0;
       for (const L of lights) {
-        const d = Math.hypot(x - L.x, y - L.y);
+        const d = Math.sqrt((x - L.x) * (x - L.x) + (y - L.y) * (y - L.y));
         if (d >= L.dark) continue;
         // A sample inside a wall takes the light of the open side, so test from just outside it.
         if (lit(map, L.x, L.y, x, y) || lit(map, L.x, L.y, x + (L.x - x) * (0.3 / d), y + (L.y - y) * (0.3 / d))) {

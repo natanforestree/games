@@ -37,7 +37,7 @@ export function botIntents(state, bot, dt) {
   let target = null, best = Infinity, crowd = 0, mother = null, motherD = 0;
   for (const c of state.creatures) {
     if (!c.alive || c.dying) continue;
-    const d = Math.hypot(c.x - p.x, c.y - p.y);
+    const cx = c.x - p.x, cy = c.y - p.y, d = Math.sqrt(cx * cx + cy * cy);
     if (d < 4) crowd++;
     if (!canSee(state.map, p.x, p.y, c.x, c.y)) continue;
     if (c.kind === MOTHER) {
@@ -85,7 +85,7 @@ export function botIntents(state, bot, dt) {
       gx = porch.x;
       gy = porch.y + 2;
     }
-    const d = Math.hypot(gx - p.x, gy - p.y);
+    const d = Math.sqrt((gx - p.x) * (gx - p.x) + (gy - p.y) * (gy - p.y));
     if (d > 0.2) {
       want = Math.atan2(gy - p.y, gx - p.x);
       steer(out, bot.facing, (gx - p.x) / d, (gy - p.y) / d);
@@ -96,7 +96,7 @@ export function botIntents(state, bot, dt) {
     want = bot.facing + 1.5 * dt * 4;
     if (g.current === RIFLE_ID && g.rifle < 6) out.reload = 1;
     if (g.current === SHOTGUN_ID && g.shells < 2) out.reload = 1;
-    const cx = state.map.start.x, cy = state.map.start.y + 3, d = Math.hypot(cx - p.x, cy - p.y);
+    const cx = state.map.start.x, cy = state.map.start.y + 3, d = Math.sqrt((cx - p.x) * (cx - p.x) + (cy - p.y) * (cy - p.y));
     if (d > 3) steer(out, bot.facing, (cx - p.x) / d, (cy - p.y) / d);
   }
   const turn = wrap(want - bot.facing);

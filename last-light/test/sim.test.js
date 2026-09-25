@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createState, step } from '../src/sim.js';
 import { createBot, botIntents } from '../src/bot.js';
 import { DT } from '../src/tuning.js';
@@ -32,6 +33,12 @@ test('the bot, unable to die, plays a whole night to the dawn', () => {
   for (let i = 0; i < (20 * 60) / DT && s.night.phase !== 'dawn'; i++) step(s, botIntents(s, bot, DT));
   assert.equal(s.night.phase, 'dawn');
   assert.ok(s.stats.kills > 150);
+});
+
+test('no module calls Math.hypot: V8 allocates on every call, and distances run per update and per frame', () => {
+  const src = new URL('../src/', import.meta.url);
+  const calling = readdirSync(src).filter((f) => f.endsWith('.js') && readFileSync(new URL(f, src), 'utf8').includes('Math.hypot('));
+  assert.deepEqual(calling, []);
 });
 
 test('an update allocates nothing that lasts: the pools keep their objects', () => {

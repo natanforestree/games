@@ -17,11 +17,15 @@ export const CHORDS = [
 
 export const LAYERS = ['drone', 'pulse', 'strings', 'musicbox', 'ticks', 'choir', 'toms', 'brass'];
 
-// The layers playing: one more each hour during a wave; the drone and music box in a lull.
+// The layers playing: one more each hour during a wave; the drone and music box in a lull. audio.js
+// asks every frame, so each answer is made once here and shared (frozen, so nobody changes it).
+const BY_HOUR = LAYERS.map((_, i) => Object.freeze(LAYERS.slice(0, i + 1)));
+const QUIET = Object.freeze(['drone', 'musicbox']);
+const SILENT = Object.freeze([]);
 export function layersFor(phase, wave) {
-  if (phase === 'wave') return LAYERS.slice(0, Math.min(LAYERS.length, wave + 1));
-  if (phase === 'lull' || phase === 'dusk') return ['drone', 'musicbox'];
-  return [];
+  if (phase === 'wave') return BY_HOUR[Math.max(0, Math.min(BY_HOUR.length - 1, wave))];
+  if (phase === 'lull' || phase === 'dusk') return QUIET;
+  return SILENT;
 }
 
 export const midiToHz = (n) => 440 * Math.pow(2, (n - 69) / 12);

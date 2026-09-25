@@ -122,7 +122,7 @@ export function createRenderer(art, map) {
         if (tx > TEX - 1) tx = TEX - 1;
         const col = tx * TEX;
         // Light where the ray met the wall, pulled back a little into the open side.
-        const back = 0.05 / Math.hypot(rdx, rdy);
+        const back = 0.05 / Math.sqrt(rdx * rdx + rdy * rdy);
         const light = lightAt(lm, cx + rdx * (dist - back), cy + rdy * (dist - back)) * TOP;
         const step = TEX / lineH;
         let pos = (y0 + 0.5 - top) * step;

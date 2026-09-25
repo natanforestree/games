@@ -13,6 +13,13 @@ test('the lulls thin to the drone and the music box; nothing plays after death',
   assert.deepEqual(layersFor('dead', 5), []);
 });
 
+test('the layers for an hour are made once, not on every frame that asks', () => {
+  for (let wave = 0; wave < 8; wave++) assert.equal(layersFor('wave', wave), layersFor('wave', wave));
+  assert.equal(layersFor('lull', 2), layersFor('dusk', 0));
+  assert.equal(layersFor('dead', 5), layersFor('dawn', 7));
+  assert.ok(Object.isFrozen(layersFor('wave', 3)), 'shared, so nobody may change them');
+});
+
 test('the notes are the same every night', () => {
   for (const layer of LAYERS) {
     for (let step = 0; step < 64; step++) assert.deepEqual(notesAt(layer, step), notesAt(layer, step));

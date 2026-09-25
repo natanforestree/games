@@ -56,7 +56,7 @@ export function flowDir(field, map, x, y, out) {
     }
   }
   if (!found) return false;
-  const vx = bx + 0.5 - x, vy = by + 0.5 - y, l = Math.hypot(vx, vy) || 1;
+  const vx = bx + 0.5 - x, vy = by + 0.5 - y, l = Math.sqrt(vx * vx + vy * vy) || 1;
   out.x = vx / l;
   out.y = vy / l;
   return true;

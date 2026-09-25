@@ -120,7 +120,7 @@ export function buildFrame(scene, state, lightmap, view) {
   updateEffects(scene.fx, view.dt ?? 0);
   f.drops = scene.fx.drops;
   // Head bob: a step every 0.9 cells walked, scaled by how fast you're going; the kick lifts the view.
-  const speed = Math.min(1, Math.hypot(p.vx, p.vy) / 3);
+  const speed = Math.min(1, Math.sqrt(p.vx * p.vx + p.vy * p.vy) / 3);
   const px = view.h / VIEW.targetHeight;
   const bob = view.reducedMotion ? 0 : Math.sin((p.walked / 0.9) * Math.PI * 2) * VIEW.bobPixels * px * speed;
   f.bob = bob + state.gun.kick * view.focal;
@@ -147,7 +147,8 @@ export function buildFrame(scene, state, lightmap, view) {
     if (!c.alive) continue;
     const cx = lerp(c.px, c.x, view.alpha), cy = lerp(c.py, c.y, view.alpha);
     creatureFrame(art, c, x, y, rightX, rightY, shown);
-    const glow = Math.round(15 * falloff(Math.hypot(cx - x, cy - y), L.eyes.full, L.eyes.dark));
+    const ex = cx - x, ey = cy - y;
+    const glow = Math.round(15 * falloff(Math.sqrt(ex * ex + ey * ey), L.eyes.full, L.eyes.dark));
     put(scene, cx, cy, art.sprites[KINDS[c.kind]], shown.frame, c.lift, shown.flip, glow);
   }
   for (const prop of state.map.props) {

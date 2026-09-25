@@ -23,7 +23,7 @@ export function movePlayer(map, p, intents, dt) {
   const c = Math.cos(p.facing), s = Math.sin(p.facing);
   let wx = intents.forward * c - intents.strafe * s;
   let wy = intents.forward * s + intents.strafe * c;
-  const wl = Math.hypot(wx, wy);
+  const wl = Math.sqrt(wx * wx + wy * wy);
   if (wl > 1) {
     wx /= wl;
     wy /= wl;
@@ -32,7 +32,7 @@ export function movePlayer(map, p, intents, dt) {
   const max = p.running ? PLAYER.run : PLAYER.walk;
   const tx = wx * max, ty = wy * max;
   const dvx = tx - p.vx, dvy = ty - p.vy;
-  const dl = Math.hypot(dvx, dvy);
+  const dl = Math.sqrt(dvx * dvx + dvy * dvy);
   const step = (wl > 0 ? ACCEL : DECEL) * dt;
   if (dl <= step) {
     p.vx = tx;
@@ -43,7 +43,8 @@ export function movePlayer(map, p, intents, dt) {
   }
   moveBody(map, p, p.vx * dt, p.vy * dt);
   for (const prop of map.props) pushOutOfCircle(p, prop.x, prop.y, prop.radius);
-  p.walked += Math.hypot(p.x - p.px, p.y - p.py);
+  const mx = p.x - p.px, my = p.y - p.py;
+  p.walked += Math.sqrt(mx * mx + my * my);
 }
 
 // Something hit you for `amount`, from (x, y). With ?god you never drop below 1.

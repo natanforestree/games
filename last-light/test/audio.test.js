@@ -52,6 +52,37 @@ test('the score and the ambience play while a night is on', () =>
     assert.ok(ctx().started.length > before + 10);
   }));
 
+test('a creature sound takes a free voice, or else the one playing farthest from you', () => {
+  // Record the panners, which are the positional voices, in the order they're made.
+  const panners = [];
+  globalThis.AudioContext = function () {
+    const ctx = fakeAudioContext(), make = ctx.createPanner;
+    ctx.createPanner = () => {
+      const p = make();
+      panners.push(p);
+      return p;
+    };
+    return ctx;
+  };
+  try {
+    const audio = createAudio(memoryStorage());
+    audio.start();
+    const s = quietState(), p = s.player;
+    const hitAt = (dx) => {
+      s.eventCount = 0;
+      emit(s, 'hit', p.x + dx, p.y, 0, 0);
+      audio.events(s);
+    };
+    for (let i = 0; i < panners.length; i++) hitAt(1 + i); // every voice busy, the last one farthest
+    assert.deepEqual(panners.map((v) => v.positionX.value - p.x), panners.map((_, i) => 1 + i));
+    hitAt(0.5);
+    assert.equal(panners.at(-1).positionX.value, p.x + 0.5, 'the farthest voice gives way');
+    assert.equal(panners[0].positionX.value, p.x + 1, 'the nearest keeps playing');
+  } finally {
+    delete globalThis.AudioContext;
+  }
+});
+
 test('mute and volume are remembered', () => {
   const storage = memoryStorage();
   const a = createAudio(storage);

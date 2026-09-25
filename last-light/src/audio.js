@@ -94,14 +94,22 @@ export function createAudio(storage) {
     } else node.setPosition(x, 0, y);
   }
 
-  // A positional voice for a sound lasting `len` seconds at (x, y); null before start().
+  // A positional voice for a sound lasting `len` seconds at (x, y); null before start(). Plain loops,
+  // since it runs for every creature sound: the first free voice, else the one farthest from (lx, ly).
   function voiceAt(x, y, len, lx, ly) {
     if (!ctx) return null;
     const now = ctx.currentTime;
-    let v = voices.find((o) => o.until <= now);
+    let v = null;
+    for (let i = 0; i < voices.length && !v; i++) if (voices[i].until <= now) v = voices[i];
     if (!v) {
-      v = voices[0];
-      for (const o of voices) if (Math.hypot(o.x - lx, o.y - ly) > Math.hypot(v.x - lx, v.y - ly)) v = o;
+      let far = -1;
+      for (let i = 0; i < voices.length; i++) {
+        const o = voices[i], dx = o.x - lx, dy = o.y - ly, d = Math.sqrt(dx * dx + dy * dy);
+        if (d > far) {
+          far = d;
+          v = o;
+        }
+      }
     }
     v.until = now + len;
     v.x = x;
@@ -278,7 +286,8 @@ export function createAudio(storage) {
     const indoors = state.map.roofed[Math.floor(p.y) * state.map.w + Math.floor(p.x)] === 1;
     const windTo = !playing ? 0.05 : (phase === 'lull' ? 0.5 : 0.3) * (indoors ? 0.35 : 1);
     windGain.gain.setTargetAtTime(windTo, t, 0.5);
-    const sd = state.stove ? Math.hypot(state.stove.x - p.x, state.stove.y - p.y) : 99;
+    const sx = state.stove ? state.stove.x - p.x : 0, sy = state.stove ? state.stove.y - p.y : 0;
+    const sd = state.stove ? Math.sqrt(sx * sx + sy * sy) : 99;
     stoveGain.gain.setTargetAtTime(playing ? Math.max(0, 1 - sd / 6) * 0.5 : 0, t, 0.3);
     if (!playing) return;
 
@@ -304,7 +313,7 @@ export function createAudio(storage) {
       let c = null, best = 10;
       for (const o of state.creatures) {
         if (!o.alive || o.dying) continue;
-        const d = Math.hypot(o.x - p.x, o.y - p.y) + Math.random() * 4;
+        const ox = o.x - p.x, oy = o.y - p.y, d = Math.sqrt(ox * ox + oy * oy) + Math.random() * 4;
         if (d < best) {
           best = d;
           c = o;

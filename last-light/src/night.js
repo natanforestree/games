@@ -52,11 +52,15 @@ export function startWave(state, i) {
 function spawnNext(state) {
   const n = state.night, p = state.player, spawns = state.map.spawns;
   let far = 0;
-  for (const s of spawns) if (Math.hypot(s.x - p.x, s.y - p.y) >= NIGHT.spawnAway) far++;
+  for (const s of spawns) {
+    const dx = s.x - p.x, dy = s.y - p.y;
+    if (Math.sqrt(dx * dx + dy * dy) >= NIGHT.spawnAway) far++;
+  }
   let pick = Math.floor(nextRandom(state.rng) * (far || spawns.length));
   let trail = spawns[0];
   for (const s of spawns) {
-    if (far && Math.hypot(s.x - p.x, s.y - p.y) < NIGHT.spawnAway) continue;
+    const dx = s.x - p.x, dy = s.y - p.y;
+    if (far && Math.sqrt(dx * dx + dy * dy) < NIGHT.spawnAway) continue;
     if (pick-- === 0) {
       trail = s;
       break;
@@ -86,7 +90,8 @@ function endWave(state) {
 function collect(state) {
   const p = state.player, g = state.gun;
   for (const k of state.pickups) {
-    if (!k.active || Math.hypot(k.x - p.x, k.y - p.y) > NIGHT.pickupReach) continue;
+    const dx = k.x - p.x, dy = k.y - p.y;
+    if (!k.active || Math.sqrt(dx * dx + dy * dy) > NIGHT.pickupReach) continue;
     if (k.kind === FLARE_PICKUP) {
       if (g.flares >= FLARE.max) continue;
       g.flares++;
@@ -114,7 +119,8 @@ export function updateNight(state, dt) {
     if (n.t <= 0) startWave(state, n.wave);
   } else if (n.phase === 'lull') {
     const stove = state.stove;
-    if (stove && Math.hypot(stove.x - p.x, stove.y - p.y) <= NIGHT.stoveReach) {
+    const sx = stove ? stove.x - p.x : 0, sy = stove ? stove.y - p.y : 0;
+    if (stove && Math.sqrt(sx * sx + sy * sy) <= NIGHT.stoveReach) {
       p.health = Math.min(state.maxHealth, p.health + NIGHT.stoveHeal * dt);
     }
     n.t -= dt;

@@ -84,7 +84,7 @@ function text(ctx, str, x, y, color, px = 8, align = 'left') {
 export function drawHud(ctx, art, state, view, info) {
   const { w, h } = view, g = state.gun, p = state.player, ui = art.ui;
   // The hands, bobbing as you walk.
-  const speed = Math.min(1, Math.hypot(p.vx, p.vy) / 3);
+  const speed = Math.min(1, Math.sqrt(p.vx * p.vx + p.vy * p.vy) / 3);
   const phase = (p.walked / 0.9) * Math.PI;
   const bx = info.reducedMotion ? 0 : Math.sin(phase) * 3 * speed;
   const by = info.reducedMotion ? 0 : Math.abs(Math.cos(phase)) * 2 * speed;
