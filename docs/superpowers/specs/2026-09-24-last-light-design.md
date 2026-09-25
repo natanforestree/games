@@ -194,7 +194,7 @@ Like Marrow's, all sound is made live with Web Audio, with no audio files. Brows
   - dark red for hurt.
 - **Textures.** 32×32, for walls and the floor: logs, a log window, pine trunks, the woodpile, the wagon's side and end, and snow.
 - **The Hungry.** Each creature is drawn facing you and side-on (so circling leapers read right). Each has walk, attack wind-up, attack, hurt and death frames. The Mother is several times bigger.
-- **In your hands.** The rifle (idle, fire, lever, reload), the shotgun (idle, fire, reload), the lantern hand, and a throw.
+- **In your hands.** The rifle (idle, fire, lever), the shotgun (idle, fire, reload), the lantern hand, and a throw. To load the rifle it goes down out of sight and comes back up, and each round is heard going in (changed 2026-09-25: Nathan found a loading hand's fingers looked wrong).
 - **Other art.** Pickups, the HUD, the pixel font (Silkscreen, like Marrow and the front page), the title, and the dawn and death screens.
 - **Previews.** A **style test** comes first: the palette, the first textures (logs, pine trunks, snow), a crawler and a gaunt, and a mock first-person frame painted from them in Aseprite. It's sent to Nathan as a preview. Building carries on while he looks, as he asked. Changes he wants are made afterwards.
 

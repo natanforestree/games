@@ -7,8 +7,7 @@ import { hourLabel } from './night.js';
 
 // Every frame of the hands art, and every HUD icon, the HUD draws.
 export const HAND_FRAMES = [
-  'rifle-idle', 'rifle-fire', 'rifle-lever-1', 'rifle-lever-2', 'rifle-tilt',
-  'rifle-load-up', 'rifle-load-gate', 'rifle-load-in', 'rifle-load-home', 'rifle-load-back',
+  'rifle-idle', 'rifle-fire', 'rifle-lever-1', 'rifle-lever-2',
   'shotgun-idle', 'shotgun-fire', 'shotgun-reload-1', 'shotgun-reload-2', 'shotgun-reload-3',
   'lantern-1', 'lantern-2', 'throw-1', 'throw-2',
 ];
@@ -16,11 +15,9 @@ export const HUD_ICONS = ['heart', 'round', 'roundEmpty', 'shell', 'shellEmpty',
 
 const FONTS = { 8: '8px Silkscreen, monospace', 16: '16px Silkscreen, monospace', 24: '24px Silkscreen, monospace' };
 const HOURS = ['9 PM', '10 PM', '11 PM', '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', 'dawn'];
-// Pushing one round into the rifle: up with a round, at the gate, half in, home, back for the next. A
-// round goes home as its time runs out (with the click), so each round's time starts with the one
-// before it home, then the hand going back for it; loading's first moments are the rifle tilting up.
-const RIFLE_RELOAD = ['rifle-load-home', 'rifle-load-back', 'rifle-load-up', 'rifle-load-gate', 'rifle-load-in'];
-const TILT = 0.08; // seconds the rifle shows half tilted, going up to load and coming back down
+const LOWER = 0.15; // seconds the rifle takes to go down out of sight to load, and to come back up
+const LOADING = 2; // how far down it goes to load: out of sight (a switch only lowers a gun to 1)
+const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const SHOTGUN_RELOAD = ['shotgun-reload-1', 'shotgun-reload-2', 'shotgun-reload-3'];
 // Numbers as text, made once, so the HUD doesn't build new strings every frame.
 const NUMBERS = Array.from({ length: 201 }, (_, i) => String(i));
@@ -32,8 +29,8 @@ const shown = { name: '', drop: 0 };
 // Which of n frames a countdown from `whole` to 0 is at, `t` left.
 const step = (t, whole, n) => Math.min(n - 1, Math.max(0, Math.floor((1 - t / whole) * n)));
 
-// Which frame of the gun in your hand to show, and how far it's lowered (0 up, 1 down). Returns a
-// reused { name, drop }.
+// Which frame of the gun in your hand to show, and how far it's lowered (0 up, 1 down for a switch, 2
+// out of sight). Returns a reused { name, drop }.
 export function gunFrame(gun) {
   let drop = 0, id = gun.current, name;
   if (gun.switching > 0) {
@@ -49,12 +46,14 @@ export function gunFrame(gun) {
     else if (gun.shotT < 0.2) name = 'rifle-idle';
     else if (gun.shotT < 0.3) name = 'rifle-lever-1';
     else if (gun.shotT < RIFLE.interval) name = 'rifle-lever-2';
-    // Going up to load and coming back down, it passes through half tilted. Up counts from when the
-    // loading shows: an empty rifle starts loading with its last shot, but works the lever first.
-    else if (gun.reloading) {
-      const up = Math.min(gun.loadT, gun.shotT - RIFLE.interval);
-      name = up < TILT ? 'rifle-tilt' : RIFLE_RELOAD[step(gun.reloadT, RIFLE.reloadPerRound, RIFLE_RELOAD.length)];
-    } else name = gun.loadT < TILT ? 'rifle-tilt' : 'rifle-idle';
+    else {
+      // Loading, the rifle goes down out of sight and comes back up when it's done: the rounds are
+      // heard going in, not seen. Down counts from when the loading shows: an empty rifle starts
+      // loading with its last shot, but works the lever first.
+      name = 'rifle-idle';
+      if (gun.reloading) drop = LOADING * ease(Math.min(gun.loadT, gun.shotT - RIFLE.interval) / LOWER);
+      else if (gun.loadT < LOWER) drop = LOADING * ease(1 - gun.loadT / LOWER);
+    }
   } else if (gun.shotT < 0.06) name = 'shotgun-fire';
   else if (gun.reloading) name = SHOTGUN_RELOAD[step(gun.reloadT, SHOTGUN.reload, SHOTGUN_RELOAD.length)];
   else name = 'shotgun-idle';

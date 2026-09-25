@@ -15,45 +15,42 @@ test('the rifle: flash, idle, the lever working, reloading', () => {
   g.shotT = 0.35;
   assert.equal(gunFrame(g).name, 'rifle-lever-2');
   g.shotT = 5;
-  g.reloading = true;
-  g.reloadT = RIFLE.reloadPerRound * 0.1;
-  assert.equal(gunFrame(g).name, 'rifle-load-in');
-  g.reloading = false;
   assert.equal(gunFrame(g).name, 'rifle-idle');
 });
 
-test('loading the rifle: it tilts up, and each round goes home just as its time runs out', () => {
+test('loading the rifle, it goes down out of sight, and comes back up when it is done', () => {
   const g = createGun();
   g.shotT = 5;
   g.reloading = true;
   g.reloadT = RIFLE.reloadPerRound;
-  g.loadT = 0.03;
-  assert.equal(gunFrame(g).name, 'rifle-tilt', 'on the way up');
-  g.loadT = 1;
-  const seen = [];
-  for (let i = 0; i < 5; i++) {
-    g.reloadT = RIFLE.reloadPerRound * (1 - (i + 0.5) / 5);
-    seen.push(gunFrame(g).name);
-  }
-  assert.deepEqual(seen, ['rifle-load-home', 'rifle-load-back', 'rifle-load-up', 'rifle-load-gate', 'rifle-load-in']);
+  const drops = [0, 0.05, 0.1, 0.2, 1].map((t) => {
+    g.loadT = t;
+    const f = gunFrame(g);
+    assert.equal(f.name, 'rifle-idle');
+    return f.drop;
+  });
+  assert.equal(drops[0], 0, 'it starts from where you hold it');
+  assert.ok(drops[1] > 0 && drops[1] < drops[2], `and goes down smoothly: ${drops}`);
+  assert.deepEqual(drops.slice(3), [2, 2], 'out of sight (a switch only lowers it to 1) until the loading is done');
   g.reloading = false;
-  g.loadT = 0.03;
-  assert.equal(gunFrame(g).name, 'rifle-tilt', 'on the way down');
-  g.loadT = 1;
-  assert.equal(gunFrame(g).name, 'rifle-idle');
+  const up = [0, 0.05, 0.1, 0.2].map((t) => {
+    g.loadT = t;
+    return gunFrame(g).drop;
+  });
+  assert.equal(up[0], 2);
+  assert.ok(up[1] < 2 && up[2] < up[1], `then comes back up: ${up}`);
+  assert.equal(up[3], 0);
 });
 
-test('an empty rifle that starts loading by itself works the lever first, then tilts up', () => {
+test('an empty rifle that starts loading by itself works the lever first, then goes down', () => {
   const g = createGun();
   g.reloading = true;
   g.reloadT = RIFLE.reloadPerRound / 2;
-  g.loadT = RIFLE.interval - 0.1; // the reload started with the last shot
-  g.shotT = RIFLE.interval - 0.1;
-  assert.equal(gunFrame(g).name, 'rifle-lever-2');
-  g.loadT = g.shotT = RIFLE.interval + 0.03;
-  assert.equal(gunFrame(g).name, 'rifle-tilt');
-  g.loadT = g.shotT = RIFLE.interval + 0.2;
-  assert.match(gunFrame(g).name, /^rifle-load-/);
+  g.loadT = g.shotT = RIFLE.interval - 0.1; // the loading started with the last shot
+  assert.deepEqual([gunFrame(g).name, gunFrame(g).drop], ['rifle-lever-2', 0]);
+  g.loadT = g.shotT = RIFLE.interval + 0.01;
+  const f = gunFrame(g);
+  assert.ok(f.drop > 0 && f.drop < 0.5, `only just going down: ${f.drop}`);
 });
 
 test('switching lowers one gun and raises the other', () => {
