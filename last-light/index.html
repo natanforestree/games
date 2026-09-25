@@ -18,6 +18,7 @@
     .note { position: fixed; inset: 0; margin: auto; height: fit-content; padding: 0 16px; text-align: center; }
     #pause { position: fixed; inset: 0; margin: auto; width: min(320px, calc(100vw - 32px)); height: fit-content; padding: 20px; box-sizing: border-box; background: #0b0e16ee; border: 2px solid #2b3040; display: grid; gap: 12px; }
     #pause[hidden], .note[hidden] { display: none; }
+    #lock-note { pointer-events: none; } /* the click it asks for must reach the canvas */
     #pause h2 { margin: 0; font-size: 16px; text-align: center; }
     #pause label { display: grid; gap: 4px; }
     #pause label.check { display: flex; gap: 8px; align-items: center; }
@@ -38,6 +39,7 @@
     <button id="quit" type="button">Quit to title</button>
   </form>
   <p class="note" id="phone" hidden>Last Light needs a keyboard and mouse.<br><a href="../">Back to the games</a></p>
+  <p class="note" id="lock-note" hidden>Click again to lock the mouse.</p>
   <p class="note" id="message" hidden><strong></strong><br><span></span></p>
   <p class="note" id="nostart" hidden>Last Light couldn't start. It needs a current desktop browser:<br>Chrome, Firefox or Safari.</p>
   <noscript><p class="note">Last Light needs JavaScript.</p></noscript>

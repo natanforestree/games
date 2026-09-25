@@ -61,6 +61,39 @@ test('the dawn counts, and a worse night never lowers the best', () => {
   assert.equal(storage.get('last-light-dawns'), '3');
 });
 
+test('a click starts the next night only once the death or dawn screen has been up for 2.5 s', () => {
+  const frames = (g, seconds) => {
+    for (let t = 0; t < seconds; t += 1 / 60) g.frame(1 / 60);
+  };
+  // Death: the screen comes up a moment after you fall.
+  const d = createGame({ storage: memoryStorage(), map, seed: 1 });
+  d.newNight();
+  startWave(d.state, 3);
+  d.state.player.health = 0.5;
+  for (let i = 0; i < 90 / DT && d.screen === 'playing'; i++) d.tick(intents());
+  assert.equal(d.screen, 'dead');
+  assert.equal(d.canContinue, false, 'not the moment the death screen shows');
+  frames(d, 2.4);
+  assert.equal(d.canContinue, false);
+  frames(d, 0.2);
+  assert.equal(d.canContinue, true);
+  // Dawn: its screen comes up 10 s into the sunrise, and the guard still starts from there.
+  const g = createGame({ storage: memoryStorage(), map, seed: 1 });
+  g.newNight();
+  startWave(g.state, LAST_WAVE);
+  g.state.night.qi = g.state.night.qn;
+  g.state.creatures.forEach((c) => (c.alive = false));
+  for (let i = 0; i < 20 / DT && g.screen !== 'dawn'; i++) g.tick(intents());
+  assert.equal(g.screen, 'dawn');
+  assert.equal(g.canContinue, false, 'not the moment the dawn screen shows');
+  frames(g, 2.4);
+  assert.equal(g.canContinue, false);
+  frames(g, 0.2);
+  assert.equal(g.canContinue, true);
+  g.newNight();
+  assert.equal(g.canContinue, false, 'playing again');
+});
+
 test('junk in storage is ignored', () => {
   const g = createGame({ storage: memoryStorage({ 'last-light-best': 'lots', 'last-light-dawns': '-4' }), map });
   assert.deepEqual(g.best, { hour: 0, dawns: 0 });

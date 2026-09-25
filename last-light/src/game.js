@@ -8,6 +8,7 @@ import { LAST_WAVE } from './night.js';
 const BEST_KEY = 'last-light-best', DAWNS_KEY = 'last-light-dawns';
 const DEAD_DELAY = 1.5; // seconds between dying and the death screen
 const DAWN_DELAY = LIGHT.dawnTime + 2;
+const CLICK_GUARD = 2.5; // seconds the death or dawn screen is up before a click starts the next night
 // A line under some hours' banners.
 const WAVE_LINES = ["They're coming out of the trees.", '', 'Something leaps in the dark.', '', '', '', '', 'Something huge is coming.'];
 
@@ -23,13 +24,15 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
     best: { hour: Math.min(readInt(BEST_KEY), LAST_WAVE + 1), dawns: readInt(DAWNS_KEY) },
     banner: { text: '', sub: '', t: 0 },
     hitT: 9,
-    endT: 0,
+    endT: 0, // seconds of the night since you died or the sun came up: its screen follows after a delay
+    shownT: 0, // seconds the death or dawn screen has been up
     saved: false,
 
     newNight() {
       game.state = createState({ seed: nextSeed++, wave: debug.wave ?? 0, god: !!debug.god, map });
       game.screen = 'playing';
       game.endT = 0;
+      game.shownT = 0;
       game.saved = false;
       game.banner.t = 0;
     },
@@ -46,6 +49,11 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
     // True while the night keeps running under the screen (playing, and the dawn's afterglow).
     get running() {
       return game.state !== null && (game.screen === 'playing' || game.screen === 'dawn');
+    },
+    // True once the death or dawn screen has been up long enough that a click starts the next night,
+    // so a panicked click doesn't skip it.
+    get canContinue() {
+      return (game.screen === 'dead' || game.screen === 'dawn') && game.shownT >= CLICK_GUARD;
     },
 
     // One 120 Hz update.
@@ -64,17 +72,23 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
       if (phase === 'dead' || phase === 'dawn') {
         game.endT += DT;
         if (!game.saved) save(s);
-        if (phase === 'dead' && game.endT >= DEAD_DELAY) game.screen = 'dead';
-        if (phase === 'dawn' && game.endT >= DAWN_DELAY) game.screen = 'dawn';
+        if (phase === 'dead' && game.endT >= DEAD_DELAY) endScreen('dead');
+        if (phase === 'dawn' && game.endT >= DAWN_DELAY) endScreen('dawn');
       }
     },
-    // Once a frame: timers for the banner and the hit tick.
+    // Once a frame: timers for the banner, the hit tick and the end screens.
     frame(dt) {
       if (game.banner.t > 0) game.banner.t -= dt;
       game.hitT += dt;
-      if (game.screen === 'dead' && game.state) game.endT += dt;
+      if ((game.screen === 'dead' || game.screen === 'dawn') && game.state) game.shownT += dt;
     },
   };
+
+  function endScreen(screen) {
+    if (game.screen === screen) return;
+    game.screen = screen;
+    game.shownT = 0;
+  }
 
   function show(text, sub, t) {
     game.banner.text = text;

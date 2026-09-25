@@ -6,9 +6,9 @@
 // result is scaled up by a whole number in one drawImage.
 //
 // Debug (URL): ?debug=fps shows frame times; ?debug=bot plays by itself (&speed=N runs N updates per
-// update); ?wave=N starts at wave N (1-8); ?god means you can't die; ?seed=N fixes the night. With
-// any of them, window.__lastlight exposes the game, and window.__lastlightPerf the frame timing
-// ({ frameMs, updates }), for the browser checks.
+// update); the flags combine with a comma (?debug=bot,fps). ?wave=N starts at wave N (1-8); ?god
+// means you can't die; ?seed=N fixes the night. With any of them, window.__lastlight exposes the
+// game, and window.__lastlightPerf the frame timing ({ frameMs, updates }), for the browser checks.
 import { createInput } from './input.js';
 import { createClock } from './clock.js';
 import { createAudio } from './audio.js';
@@ -125,9 +125,17 @@ async function boot() {
     note.hidden = true;
     muteInput.checked = audio.muted;
   };
-  const lockOrExplain = async () => {
-    if (!(await input.lock())) note.hidden = false; // Chrome: too soon after Esc; the next click works
+  // A refused pointer lock (Chrome: too soon after Esc; the next click works) says so where you are: on
+  // the pause menu by its Resume button, and otherwise over the title or end screen.
+  const lockNote = document.getElementById('lock-note');
+  const lockRefused = () => {
+    if (!pause.hidden) note.hidden = false;
+    else lockNote.hidden = false;
   };
+  const lockOrExplain = async () => {
+    if (!(await input.lock())) lockRefused();
+  };
+  document.addEventListener('pointerlockerror', lockRefused);
   document.getElementById('resume').addEventListener('click', lockOrExplain);
   document.getElementById('quit').addEventListener('click', () => {
     game.quit();
@@ -150,12 +158,16 @@ async function boot() {
       if (game.screen !== 'playing') start();
     } else if (!input.locked) lockOrExplain();
   });
-  // With the mouse still locked on the death or dawn screen, a click starts the next night.
-  canvas.addEventListener('mousedown', () => {
-    if (input.locked && (game.screen === 'dead' || game.screen === 'dawn') && game.endT > 2.5) start();
+  // With the mouse still locked on the death or dawn screen, a click starts the next night (once the
+  // screen has been up a moment). That click is only the start: it doesn't reach input as a shot.
+  canvas.addEventListener('mousedown', (e) => {
+    if (!input.locked || !game.canContinue) return;
+    e.stopPropagation();
+    start();
   });
   document.addEventListener('pointerlockchange', () => {
     if (input.locked) {
+      lockNote.hidden = true;
       showPause(false);
       if (game.screen === 'paused') {
         game.resume();
@@ -190,7 +202,10 @@ async function boot() {
       const dt = last === null ? 0 : Math.min(0.1, (now - last) / 1000);
       last = now;
       time += dt;
-      if (input.takeUI().mute) audio.toggleMute();
+      if (input.takeUI().mute) {
+        audio.toggleMute();
+        muteInput.checked = audio.muted; // the pause menu's box, if it's open, follows M
+      }
       const n = game.running ? clock.advance(now) * speed : 0;
       for (let i = 0; i < n; i++) {
         game.tick(debug.bot ? botIntents(game.state, bot, DT) : input.sample());
