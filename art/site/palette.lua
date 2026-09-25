@@ -36,7 +36,7 @@ return {
   shooting = "#fff6dc",
 
   -- The hover glow round each island.
-  glow = { snake = "#fff4c2", marrow = "#ffd9b8", unfinished = "#ffe8b0" },
+  glow = { snake = "#fff4c2", marrow = "#ffd9b8", unfinished = "#ffe8b0", ["last-light"] = "#ffd7a0" },
 
   -- Snake: copied from art/snake-icon.lua (the card icon), plus a rock ramp for the underside.
   snake = {
@@ -64,6 +64,19 @@ return {
     flesh = { "#6d2242", "#9a385d", "#c65a75", "#e48892", "#f6c3b6" },
     magenta = { "#731a5f", "#b02a87", "#ea68ba" },
     bone = { "#6b4d59", "#9d7f87", "#ceb3af", "#f0e1d7" },
+  },
+
+  -- Last Light: copied from art/last-light/palette.lua (the night, the snow, the cabin's logs, the pines,
+  -- stone, the fire and the window's glow, and the after-eaters' eyes).
+  lastLight = {
+    void = "#05070c", night1 = "#0b0f1a", night2 = "#121a2b", night3 = "#1c2740", night4 = "#2a3a58",
+    snow0 = "#3b4660", snow1 = "#5d6b88", snow2 = "#8a98b4", snow3 = "#b9c5da", snow4 = "#e6edf6",
+    wood0 = "#1e140e", wood1 = "#34221a", wood2 = "#4e3324", wood3 = "#6b4a31", wood4 = "#8d6844", wood5 = "#b08a5c",
+    bark0 = "#15110f", bark1 = "#262019", bark2 = "#3a3026", bark3 = "#544536",
+    needle0 = "#0e1712", needle1 = "#182a20", needle2 = "#26402f", needle3 = "#3a5a40",
+    stone0 = "#2a2c33", stone1 = "#454852", stone2 = "#676b77", stone3 = "#8e929e",
+    fire1 = "#a8400f", fire2 = "#e87a1e", fire3 = "#ffb347", fire4 = "#ffe29a", window = "#ffcf7a",
+    brass1 = "#c9a045", eye2 = "#f2ff8a",
   },
 
   -- The unfinished island: bare stone, a little grass, raw timber, rope and a lantern.
