@@ -160,7 +160,7 @@ function hudOf(s, over = {}) {
   drawHud(ctx, art, s, { w: 480, h: 270 }, { time: 0, hitT: 9, banner: { t: 0 }, reducedMotion: false, ...over });
   const byX = new Map(Object.entries(art.hud.icons).map(([n, r]) => [r[0], n]));
   const icons = ctx.calls.images.filter((i) => i.img === art.hud.image).map((i) => byX.get(i.args[0]));
-  return { texts: ctx.calls.texts.map((t) => t.str), icons };
+  return { texts: ctx.calls.texts.map((t) => t.str), icons, drawn: ctx.calls.texts };
 }
 
 test('the embers you carry show beside your health, however many (?embers=999 too)', () => {
@@ -195,6 +195,44 @@ test('at the fire: the offer as rows, each its key, icon, name and line; short o
   assert.ok(['1', '2', '3'].every((k) => texts.includes(k)));
   s.atFire = s.choosing = false;
   assert.ok(!hudOf(s).texts.some((t) => t.startsWith('The fire')), 'nothing away from it');
+});
+
+test('the frame after a pick shows no empty panel', () => {
+  const s = quietState();
+  s.atFire = s.choosing = true; // a card was just taken: the offer is gone, and choosing lasts to the next update
+  s.offerN = 0;
+  s.bought = 1;
+  s.carried = 0;
+  const { texts } = hudOf(s);
+  assert.ok(!texts.includes('The fire shows you three'));
+  assert.ok(texts.includes('The fire wants 10 more embers'), texts.join('|'));
+});
+
+test('with nothing left it could offer, the fire asks for nothing', () => {
+  const s = quietState(); // before the shotgun
+  for (let id = 0; id < UPGRADE_LIST.length; id++) {
+    if (UPGRADE_LIST[id].shotgun) continue;
+    s.perks[UPGRADE_LIST[id].key] = true;
+    s.taken[s.bought++] = id;
+  }
+  s.atFire = true;
+  s.carried = 3;
+  assert.ok(!hudOf(s).texts.some((t) => t.startsWith('The fire')));
+});
+
+test("a card's banner never covers the fire's line or its offer", () => {
+  const s = quietState();
+  const banner = { text: UPGRADE_LIST[3].name, sub: UPGRADE_LIST[3].line, t: 2 };
+  const below = 270 * 0.28 + 22 + 8; // where the banner's sub-line ends
+  const clear = (drawn, str) => drawn.some((t) => t.str === str) && drawn.filter((t) => t.str === str).every((t) => t.y >= below);
+  s.atFire = true;
+  s.carried = 4;
+  assert.ok(clear(hudOf(s, { banner }).drawn, 'The fire wants 2 more embers'));
+  s.choosing = true;
+  s.offer.set([0, 6, 11]);
+  s.offerN = 3;
+  const { drawn } = hudOf(s, { banner });
+  for (const str of ['The fire shows you three', 'Costs 6 embers', ...[0, 6, 11].flatMap((id) => [UPGRADE_LIST[id].name, UPGRADE_LIST[id].line])]) assert.ok(clear(drawn, str), str);
 });
 
 test('Steady hands ready: the crosshair goes warm; a hit tick still wins', () => {

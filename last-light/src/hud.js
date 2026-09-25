@@ -4,7 +4,7 @@
 import { RIFLE, SHOTGUN, SWITCH_TIME, FLARE, FEEL, NIGHT } from './tuning.js';
 import { RIFLE_ID, steadyReady } from './weapons.js';
 import { hourLabel } from './night.js';
-import { UPGRADE_LIST, UPGRADE_COUNT, upgradeCost } from './upgrades.js';
+import { UPGRADE_LIST, UPGRADE_COUNT, upgradeCost, anyUsable } from './upgrades.js';
 
 // Every frame of the hands art, and every HUD icon, the HUD draws.
 export const HAND_FRAMES = [
@@ -20,6 +20,9 @@ const FONTS = { 8: '8px Silkscreen, monospace', 16: '16px Silkscreen, monospace'
 const HOURS = ['9 PM', '10 PM', '11 PM', '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', 'dawn'];
 const LOWER = 0.15; // seconds the rifle takes to go down out of sight to load, and to come back up
 const LOADING = 2; // how far down it goes to load: out of sight (a switch only lowers a gun to 1)
+// The fire's line and its offer sit below the banners (at h x 0.28, two lines), so the banner for a
+// card just taken never covers them.
+const FIRE_TOP = 0.44;
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const SHOTGUN_RELOAD = ['shotgun-reload-1', 'shotgun-reload-2', 'shotgun-reload-3'];
 // Numbers as text, made once, so the HUD doesn't build new strings every frame.
@@ -148,10 +151,10 @@ export function drawHud(ctx, art, state, view, info) {
   // The hour, top centre.
   text(ctx, hourLabel(state.night), w / 2, 6, ui.dim, 8, 'center');
   // At the fire: its offer, or how many more embers it wants.
-  if (state.choosing) drawOffer(ctx, art, state, w, h);
-  else if (state.atFire && state.bought < UPGRADE_COUNT) {
+  if (state.choosing && state.offerN > 0) drawOffer(ctx, art, state, w, h);
+  else if (state.atFire && anyUsable(state)) {
     const need = upgradeCost(state.bought) - state.carried;
-    if (need > 0) text(ctx, WANTS[Math.min(need, WANTS.length - 1)], w / 2, Math.round(h * 0.26), ui.text, 8, 'center');
+    if (need > 0) text(ctx, WANTS[Math.min(need, WANTS.length - 1)], w / 2, Math.round(h * FIRE_TOP), ui.text, 8, 'center');
   }
   // A banner: the new hour, a supply, a warning.
   const b = info.banner;
@@ -166,7 +169,7 @@ export function drawHud(ctx, art, state, view, info) {
 // The fire's offer: a panel down the middle of the view, a row a card (its key, icon, name and line).
 function drawOffer(ctx, art, state, w, h) {
   const ui = art.ui, n = state.offerN, row = 26;
-  const bw = Math.min(w - 16, 300), x = Math.round((w - bw) / 2), top = Math.round(h * 0.2);
+  const bw = Math.min(w - 16, 300), x = Math.round((w - bw) / 2), top = Math.round(h * FIRE_TOP);
   ctx.globalAlpha = 0.82;
   ctx.fillStyle = ui.night;
   ctx.fillRect(x - 8, top - 8, bw + 16, 30 + n * row);

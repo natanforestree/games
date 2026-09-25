@@ -40,6 +40,12 @@ export function usable(state, id) {
   return !state.perks[u.key] && (!u.shotgun || state.gun.hasShotgun);
 }
 
+// Whether any card is left that the fire could offer you now.
+export function anyUsable(state) {
+  for (let id = 0; id < UPGRADE_COUNT; id++) if (usable(state, id)) return true;
+  return false;
+}
+
 const pool = new Int8Array(UPGRADE_COUNT);
 
 // Draws up to UPGRADES.offer distinct usable upgrades into state.offer, at random from the night's seed.
