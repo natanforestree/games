@@ -379,9 +379,9 @@ local MUZZLE = { CX + 24, CY + 28 }
 local RIFLE_AT = V(0.13, 0.2, 0.38)
 local RIFLE_FWD = aimAt(RIFLE_AT, V(0, -0.024, 0.66), MUZZLE[1], MUZZLE[2])
 
--- p: roll (radians, its right side up towards you), lower (metres) and tip (radians, muzzle up) for
--- the reload; lever (0 shut to 1 open); case (a spent case flying, 0..1); gate (1 a round at the
--- loading gate, 2 half in, 3 pushed home); fire.
+-- p: roll (radians, its right side up towards you), lower (metres; negative raises it) and tip
+-- (radians, muzzle up) for the reload; lever (0 shut to 1 open); case (a spent case flying, 0..1);
+-- gate (1 a round at the loading gate, 2 half in, 3 pushed home); fire.
 local function rifle(p)
   local fwd = RIFLE_FWD
   if p.tip then fwd = rot(fwd, V(1, 0, 0), p.tip) end
@@ -430,17 +430,25 @@ local function rifle(p)
     local d = mul(norm(V(math.cos(p.case * 5), math.sin(p.case * 5), 0.4)), 0.011)
     cap(s, g, sub(c0, d), add(c0, d), 0.005, "brass", "case")
   end
-  -- Your hand: on the wrist, or up at the gate pushing a round in with thumb and finger.
+  -- Your hand: on the wrist, or up at the gate, the thumb pushing a round in by its base.
   if p.gate then
-    local tz = ({ 0.022, 0.05, 0.085 })[p.gate]
-    -- the forearm drops away down to the right, out of the view
-    local wr = place(g, V(0.062, 0.03, 0.01))
-    s[#s + 1] = capsule(add(wr, V(0.01, 0.03, 0.0)), add(wr, V(0.02, 0.4, 0.0)), 0.04 * SIZE, "coat", "arm")
-    s[#s + 1] = capsule(wr, add(wr, V(0.006, 0.03, 0.0)), 0.026 * SIZE, "skin", "hand")
-    ell(s, g, V(0.05, 0.008, 0.04), V(1, 0, 0), V(0, 1, 0), { 0.02, 0.027, 0.036 }, "skin", "hand")
-    cap(s, g, V(0.045, -0.018, 0.03), V(0.024, -0.006, tz), 0.0095, "skin", "hand")
-    cap(s, g, V(0.05, 0.026, 0.035), V(0.026, 0.02, tz), 0.009, "skin", "hand")
-    cap(s, g, V(0.056, 0.034, 0.03), V(0.04, 0.036, 0.055), 0.0085, "skin", "hand")
+    local z = ({ 0.028, 0.056, 0.094 })[p.gate] -- the thumb's tip: at the round's base, then on the gate
+    local tip = place(g, V(0.021, 0.007, z - 0.004))
+    -- A loose fist out to the right of the gate, clear of the stock (which runs in front of anything
+    -- lower down), its curled fingers towards you and lined up with the rifle; the sleeve drops away
+    -- out of the view, and the thumb reaches across to the round.
+    local along = norm(sub(place(g, V(0, 0, -1)), place(g, V(0, 0, 0)))) -- down the rifle, towards the stock
+    local sy = norm(V(along[1], along[2], 0))
+    local fist = add(tip, V(0.055, 0.022, -0.02))
+    local h = pose(fist, V(sy[2], -sy[1], 0), sy, V(0, 0, 1), SIZE)
+    s[#s + 1] = capsule(place(h, V(0, 0.02, 0.01)), add(fist, V(0.05, 0.4, 0.06)), 0.034 * SIZE, "coat", "arm")
+    ell(s, h, V(0, 0, 0), V(1, 0, 0), V(0, 1, 0), { 0.022, 0.026, 0.02 }, "skin", "hand")
+    for i = 0, 3 do cap(s, h, V(-0.014 + i * 0.0095, -0.013, -0.017), V(-0.013 + i * 0.0095, 0.011, -0.02), 0.0058, "skin", "hand") end
+    -- the thumb, from the top of the fist, bowed a little towards you at its joint
+    local root = place(h, V(-0.014, -0.022, -0.006))
+    local knuckle = add(add(root, mul(sub(tip, root), 0.45)), V(0.0, -0.004, -0.006))
+    s[#s + 1] = capsule(root, knuckle, 0.0084 * SIZE, "skin", "hand")
+    s[#s + 1] = capsule(knuckle, tip, 0.007 * SIZE, "skin", "hand")
   else
     rightHand(s, g, p.lever)
   end
@@ -700,9 +708,9 @@ local pieces = {
   crop(rifle({ fire = true }), "rifle-fire"),
   crop(rifle({ lever = 0.5, case = 0.25 }), "rifle-lever-1"),
   crop(rifle({ lever = 1, case = 0.8 }), "rifle-lever-2"),
-  crop(rifle({ roll = -0.9, lower = 0.03, tip = 0.1, gate = 1 }), "rifle-reload-1"),
-  crop(rifle({ roll = -0.95, lower = 0.032, tip = 0.1, gate = 2 }), "rifle-reload-2"),
-  crop(rifle({ roll = -0.9, lower = 0.03, tip = 0.1, gate = 3 }), "rifle-reload-3"),
+  crop(rifle({ roll = -0.9, lower = -0.02, tip = 0.1, gate = 1 }), "rifle-reload-1"),
+  crop(rifle({ roll = -0.95, lower = -0.018, tip = 0.1, gate = 2 }), "rifle-reload-2"),
+  crop(rifle({ roll = -0.9, lower = -0.02, tip = 0.1, gate = 3 }), "rifle-reload-3"),
   crop(shotgun({}), "shotgun-idle"),
   crop(shotgun({ fire = true }), "shotgun-fire"),
   crop(shotgun({ open = 1, lower = 0.02 }), "shotgun-reload-1"),
