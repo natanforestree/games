@@ -6,7 +6,7 @@
 // Browsers only allow sound after a click, so start() is called from inside the click that starts a
 // night (main.js). M mutes; the volume and mute are remembered.
 import { layersFor, notesAt, midiToHz, STEP, DAWN } from './music.js';
-import { FEEL } from './tuning.js';
+import { FEEL, RIFLE } from './tuning.js';
 
 const MUTE_KEY = 'last-light-muted', VOLUME_KEY = 'last-light-volume';
 const VOICES = 12;
@@ -169,10 +169,11 @@ export function createAudio(storage) {
       switch (e.type) {
         case 'shot':
           if (e.a === 0) {
+            const k = state.gun.interval / RIFLE.interval; // the lever works quicker with Quick lever
             burst(sfx, t, { len: 0.09, freq: 1500, q: 0.7, vol: 0.9 }).connect(echo);
             tone(sfx, t, { len: 0.16, freq: 110, to: 38, vol: 0.9 });
-            burst(sfx, t + 0.2, { len: 0.03, type: 'highpass', freq: 2800, vol: 0.4 }); // lever
-            burst(sfx, t + 0.31, { len: 0.03, type: 'highpass', freq: 2200, vol: 0.4 });
+            burst(sfx, t + 0.2 * k, { len: 0.03, type: 'highpass', freq: 2800, vol: 0.4 }); // lever
+            burst(sfx, t + 0.31 * k, { len: 0.03, type: 'highpass', freq: 2200, vol: 0.4 });
           } else {
             burst(sfx, t, { len: 0.4, type: 'lowpass', freq: 1800, to: 300, vol: 1 }).connect(echo);
             tone(sfx, t, { len: 0.25, freq: 80, to: 30, vol: 1 });
@@ -221,6 +222,31 @@ export function createAudio(storage) {
         case 'pickup':
           tone(sfx, t, { len: 0.3, freq: 880, vol: 0.2 });
           tone(sfx, t + 0.08, { len: 0.4, freq: 1320, vol: 0.15 });
+          break;
+        case 'emberDrop': {
+          // A soft crackle where it fell.
+          const g = voiceAt(e.x, e.y, 0.4, lx, ly);
+          for (let k = 0; k < 3; k++) burst(g, t + k * 0.06, { len: 0.03, type: 'highpass', freq: 3000 + k * 900, vol: 0.25 });
+          break;
+        }
+        case 'ember':
+          // A warm tick, higher for a bigger ember.
+          tone(sfx, t, { len: 0.12, type: 'triangle', freq: 520 + 140 * e.a, vol: 0.18 });
+          burst(sfx, t, { len: 0.04, freq: 2400, q: 2, vol: 0.12 });
+          break;
+        case 'emberOut':
+          burst(voiceAt(e.x, e.y, 0.5, lx, ly), t, { len: 0.4, type: 'highpass', freq: 5000, to: 2500, vol: 0.12 });
+          break;
+        case 'offer':
+          // The fire draws its three: a low whoosh.
+          burst(sfx, t, { len: 0.6, type: 'lowpass', freq: 300, to: 900, vol: 0.45 });
+          break;
+        case 'upgrade':
+          tone(sfx, t, { len: 0.5, type: 'triangle', freq: 660, vol: 0.25 });
+          tone(sfx, t + 0.12, { len: 0.7, type: 'triangle', freq: 990, vol: 0.2 });
+          break;
+        case 'alight':
+          burst(voiceAt(e.x, e.y, 0.5, lx, ly), t, { len: 0.45, type: 'lowpass', freq: 600, to: 1800, vol: 0.6 });
           break;
         case 'wave': {
           // A bell tolls the hour.

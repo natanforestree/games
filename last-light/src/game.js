@@ -1,9 +1,11 @@
 // The screens and the flow between them: title, playing, paused, dead, dawn. Owns the night being
 // played, turns its events into banners, and remembers your best night: the latest hour you reached,
-// and how many dawns you've seen.
+// and how many dawns you've seen. `gentle` ("Embers come to you", from the pause menu) goes into each
+// new night.
 import { createState, step } from './sim.js';
 import { NIGHT, LIGHT, DT } from './tuning.js';
 import { LAST_WAVE } from './night.js';
+import { UPGRADE_LIST } from './upgrades.js';
 
 const BEST_KEY = 'last-light-best', DAWNS_KEY = 'last-light-dawns';
 const DEAD_DELAY = 1.5; // seconds between dying and the death screen
@@ -27,9 +29,11 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
     endT: 0, // seconds of the night since you died or the sun came up: its screen follows after a delay
     shownT: 0, // seconds the death or dawn screen has been up
     saved: false,
+    gentle: false, // "Embers come to you"
+    taught: false, // the first ember of the session has had its banner
 
     newNight() {
-      game.state = createState({ seed: nextSeed++, wave: debug.wave ?? 0, god: !!debug.god, map });
+      game.state = createState({ seed: nextSeed++, wave: debug.wave ?? 0, god: !!debug.god, gentle: game.gentle, embers: debug.embers ?? 0, map });
       game.screen = 'playing';
       game.endT = 0;
       game.shownT = 0;
@@ -65,8 +69,12 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
         const e = s.events[i];
         if (e.type === 'hit') game.hitT = 0;
         else if (e.type === 'wave') show(NIGHT.hours[e.a], WAVE_LINES[e.a] ?? '', 3);
-        else if (e.type === 'lull' && e.a === 1) show('', 'Warm up by the stove.', 3);
+        else if (e.type === 'lull' && e.a === 1) show('', 'Bring embers to the stove.', 3);
         else if (e.type === 'pickup' && e.a === 2) show('Shotgun', '1 and 2 switch guns', 3);
+        else if (e.type === 'emberDrop' && !game.taught) {
+          game.taught = true;
+          show('Embers', 'Take them before they cool.', 3);
+        } else if (e.type === 'upgrade') show(UPGRADE_LIST[e.a].name, UPGRADE_LIST[e.a].line, 2.5);
       }
       const phase = s.night.phase;
       if (phase === 'dead' || phase === 'dawn') {

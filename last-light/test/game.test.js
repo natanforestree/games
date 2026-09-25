@@ -5,6 +5,8 @@ import { parseMap } from '../src/map.js';
 import { NIGHT, DT, LIGHT } from '../src/tuning.js';
 import { startWave, LAST_WAVE } from '../src/night.js';
 import { intents } from './helpers.js';
+import { spawnCreature, CRAWLER } from '../src/creatures.js';
+import { UPGRADE_LIST } from '../src/upgrades.js';
 
 function memoryStorage(init = {}) {
   const m = new Map(Object.entries(init));
@@ -104,4 +106,47 @@ test('?wave= and ?god reach the night', () => {
   g.newNight();
   assert.equal(g.state.night.wave, 7);
   assert.equal(g.state.god, true);
+});
+
+test('embers: the first one of the session gets a banner, once; an upgrade shows its name', () => {
+  const g = createGame({ storage: memoryStorage(), map, seed: 1 });
+  g.newNight();
+  const s = g.state;
+  spawnCreature(s, CRAWLER, 19.5, 26.5);
+  g.tick(intents({ facing: Math.PI / 2, fire: true }));
+  assert.deepEqual([g.banner.text, g.banner.sub], ['Embers', 'Take them before they cool.']);
+  g.banner.t = 0;
+  g.newNight();
+  spawnCreature(g.state, CRAWLER, 19.5, 26.5);
+  g.tick(intents({ facing: Math.PI / 2, fire: true }));
+  assert.equal(g.banner.t, 0, 'not again in the same session');
+  const t = g.state;
+  t.night.phase = 'lull';
+  t.night.t = 1e9;
+  t.carried = 6;
+  t.player.x = t.stove.x;
+  t.player.y = t.stove.y + 1;
+  g.tick(intents());
+  const id = t.offer[0];
+  g.tick(intents({ pick: 1 }));
+  assert.deepEqual([g.banner.text, g.banner.sub], [UPGRADE_LIST[id].name, UPGRADE_LIST[id].line]);
+});
+
+test('the first lull asks for embers at the stove', () => {
+  const g = createGame({ storage: memoryStorage(), map, seed: 1 });
+  g.newNight();
+  const s = g.state;
+  startWave(s, 0);
+  for (const c of s.creatures) c.alive = false;
+  s.night.qi = s.night.qn; // the 9 PM wave, all out and all dead
+  g.tick(intents());
+  assert.equal(s.night.phase, 'lull');
+  assert.equal(g.banner.sub, 'Bring embers to the stove.');
+});
+
+test('"Embers come to you" and ?embers= reach each new night', () => {
+  const g = createGame({ storage: memoryStorage(), map, debug: { embers: 40 } });
+  g.gentle = true;
+  g.newNight();
+  assert.deepEqual([g.state.gentle, g.state.carried], [true, 40]);
 });

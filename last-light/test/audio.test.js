@@ -28,7 +28,7 @@ test('every event type makes a sound without error', () =>
     const audio = createAudio(memoryStorage());
     audio.start();
     const s = quietState();
-    const types = ['shot', 'dry', 'reload', 'switch', 'hit', 'hurt', 'windup', 'shriek', 'leap', 'birth', 'flareThrow', 'pickup', 'wave', 'dawn', 'dead', 'spawn', 'flareOut', 'lull'];
+    const types = ['shot', 'dry', 'reload', 'switch', 'hit', 'hurt', 'windup', 'shriek', 'leap', 'birth', 'flareThrow', 'pickup', 'wave', 'dawn', 'dead', 'spawn', 'flareOut', 'lull', 'emberDrop', 'ember', 'emberOut', 'offer', 'upgrade', 'alight'];
     for (const type of types) {
       s.eventCount = 0;
       emit(s, type, 20, 25, type === 'hit' ? 1 : 0, 1);

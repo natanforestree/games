@@ -7,8 +7,9 @@
 //
 // Debug (URL): ?debug=fps shows frame times; ?debug=bot plays by itself (&speed=N runs N updates per
 // update); the flags combine with a comma (?debug=bot,fps). ?wave=N starts at wave N (1-8); ?god
-// means you can't die; ?seed=N fixes the night. With any of them, window.__lastlight exposes the
-// game, and window.__lastlightPerf the frame timing ({ frameMs, updates }), for the browser checks.
+// means you can't die; ?seed=N fixes the night; ?embers=N starts each night carrying N embers. With
+// any of them, window.__lastlight exposes the game, and window.__lastlightPerf the frame timing
+// ({ frameMs, updates }), for the browser checks.
 import { createInput } from './input.js';
 import { createClock } from './clock.js';
 import { createAudio } from './audio.js';
@@ -39,10 +40,11 @@ const debug = {
   bot: debugFlags.has('bot'),
   god: params.has('god'),
   wave: int(params.get('wave'), 1, 8, 1) - 1,
+  embers: int(params.get('embers'), 0, 999, 0),
 };
 const speed = debug.bot ? int(params.get('speed'), 1, 20, 1) : 1;
 const seed = params.has('seed') ? int(params.get('seed'), 0, 2 ** 31, 1) : Date.now();
-const anyDebug = debug.fps || debug.bot || debug.god || params.has('wave') || params.has('seed');
+const anyDebug = debug.fps || debug.bot || debug.god || params.has('wave') || params.has('seed') || params.has('embers');
 
 const canvas = document.getElementById('game');
 const message = (title, detail) => {
@@ -71,6 +73,7 @@ async function boot() {
   input.sensitivity = sens >= MOUSE.minScale && sens <= MOUSE.maxScale ? sens : 1;
   const map = parseMap();
   const game = createGame({ storage, map, seed, debug });
+  game.gentle = storage.get('last-light-gentle') === '1';
   if (anyDebug) window.__lastlight = game;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -108,10 +111,12 @@ async function boot() {
   const pause = document.getElementById('pause');
   const sensInput = document.getElementById('sensitivity'), volInput = document.getElementById('volume');
   const muteInput = document.getElementById('mute'), note = document.getElementById('pause-note');
+  const gentleInput = document.getElementById('gentle');
   // The slider runs 0-100 for 0.25x-4x, evenly in ratio (50 is 1x).
   sensInput.value = String(Math.round((Math.log(input.sensitivity / MOUSE.minScale) / Math.log(MOUSE.maxScale / MOUSE.minScale)) * 100));
   volInput.value = String(Math.round(audio.volume * 100));
   muteInput.checked = audio.muted;
+  gentleInput.checked = game.gentle;
   sensInput.addEventListener('input', () => {
     input.sensitivity = MOUSE.minScale * (MOUSE.maxScale / MOUSE.minScale) ** (Number(sensInput.value) / 100);
     storage.set('last-light-sensitivity', input.sensitivity.toFixed(3));
@@ -119,6 +124,12 @@ async function boot() {
   volInput.addEventListener('input', () => audio.setVolume(Number(volInput.value) / 100));
   muteInput.addEventListener('change', () => {
     if (muteInput.checked !== audio.muted) audio.toggleMute();
+  });
+  // "Embers come to you": for this night at once, and every night after.
+  gentleInput.addEventListener('change', () => {
+    game.gentle = gentleInput.checked;
+    if (game.state) game.state.gentle = game.gentle;
+    storage.set('last-light-gentle', game.gentle ? '1' : '0');
   });
   const showPause = (show) => {
     pause.hidden = !show;
@@ -196,7 +207,7 @@ async function boot() {
   if (anyDebug) window.__lastlightPerf = perf;
   const frameView = { facing: 0, pitch: 0, alpha: 0, time: 0, dt: 0, reducedMotion: false, h: 0, focal: 0 };
   const hudInfo = { time: 0, hitT: 0, banner: game.banner, reducedMotion: false };
-  const screenInfo = { time: 0, best: game.best, reached: 0, kills: 0 };
+  const screenInfo = { time: 0, best: game.best, reached: 0, kills: 0, taken: null, bought: 0 };
   const loop = (now) => {
     try {
       const t0 = performance.now();
@@ -250,6 +261,8 @@ async function boot() {
       screenInfo.time = time;
       screenInfo.reached = s.night.reached;
       screenInfo.kills = s.stats.kills;
+      screenInfo.taken = s.taken;
+      screenInfo.bought = s.bought;
       drawScreen(octx, art, view, game.screen, screenInfo);
     }
     if (debug.fps) {
