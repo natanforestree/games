@@ -235,13 +235,17 @@ test("a card's banner never covers the fire's line or its offer", () => {
   for (const str of ['The fire shows you three', 'Costs 6 embers', ...[0, 6, 11].flatMap((id) => [UPGRADE_LIST[id].name, UPGRADE_LIST[id].line])]) assert.ok(clear(drawn, str), str);
 });
 
-test('Steady hands ready: the crosshair goes warm; a hit tick still wins', () => {
+test('Steady hands ready: the crosshair goes warm; a hit tick still wins, and the shotgun never shows it', () => {
   const s = quietState();
   s.perks.steady = true;
   s.player.stillT = 1;
   assert.ok(hudOf(s).icons.includes('crosshairSteady'));
   assert.ok(hudOf(s, { hitT: 0 }).icons.includes('hitTick'));
   s.player.stillT = 0;
+  assert.ok(hudOf(s).icons.includes('crosshair'));
+  s.player.stillT = 1;
+  s.gun.hasShotgun = true;
+  s.gun.current = SHOTGUN_ID;
   assert.ok(hudOf(s).icons.includes('crosshair'));
 });
 

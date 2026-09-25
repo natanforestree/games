@@ -115,8 +115,8 @@ export function drawHud(ctx, art, state, view, info) {
     const gf = gunFrame(g);
     frame(ctx, art, gf.name, w / 2 + bx, h + by + gf.drop * 60 + g.kick * 120);
   }
-  // Crosshair and hit tick; the crosshair goes warm while Steady hands is ready.
-  const cross = info.hitT < 0.15 ? 'hitTick' : steadyReady(state) ? 'crosshairSteady' : 'crosshair';
+  // Crosshair and hit tick; the crosshair goes warm while Steady hands is ready with the rifle raised.
+  const cross = info.hitT < 0.15 ? 'hitTick' : g.current === RIFLE_ID && steadyReady(state) ? 'crosshairSteady' : 'crosshair';
   icon(ctx, art, cross, Math.floor(w / 2) - 3, Math.floor(h / 2) - 3);
   // Hurt: the edges glow red, and pulse when you're low.
   let hurt = state.hurt > 0 ? (state.hurt / FEEL.hurtTime) * 0.55 : 0;

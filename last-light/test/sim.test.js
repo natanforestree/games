@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createState, step } from '../src/sim.js';
 import { createBot, botIntents } from '../src/bot.js';
+import { igniteCreature } from '../src/creatures.js';
 import { DT } from '../src/tuning.js';
 
 // Everything that matters about a night, as one string.
@@ -41,12 +42,20 @@ test('no module calls Math.hypot: V8 allocates on every call, and distances run 
   assert.deepEqual(calling, []);
 });
 
-test('an update allocates nothing that lasts: the pools keep their objects', () => {
+test('an update allocates nothing that lasts, with embers, burning and choosing in play: the pools keep their objects', () => {
   const s = createState({ seed: 3, god: true });
   const bot = createBot();
   const creatures = s.creatures, events = s.events, first = s.creatures[0], flares = s.flares;
   const embers = s.embers, ember = s.embers[0], offer = s.offer, taken = s.taken, perks = s.perks;
-  for (let i = 0; i < 90 / DT; i++) step(s, botIntents(s, bot, DT));
+  let burnSeen = false;
+  for (let i = 0; i < 90 / DT; i++) {
+    if (i % Math.round(5 / DT) === 0) {
+      const c = s.creatures.find((c) => c.alive && !c.dying);
+      if (c) igniteCreature(s, c);
+    }
+    step(s, botIntents(s, bot, DT));
+    if (s.creatures.some((c) => c.burnT > 0)) burnSeen = true;
+  }
   assert.equal(s.creatures, creatures);
   assert.equal(s.creatures[0], first);
   assert.equal(s.events, events);
@@ -57,4 +66,5 @@ test('an update allocates nothing that lasts: the pools keep their objects', () 
   assert.equal(s.taken, taken);
   assert.equal(s.perks, perks);
   assert.ok(s.bought > 0, 'the bot bought something in 90 s, so choosing ran too');
+  assert.ok(burnSeen, 'burning ran too');
 });

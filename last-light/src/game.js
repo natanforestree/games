@@ -31,6 +31,7 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
     saved: false,
     gentle: false, // "Embers come to you"
     taught: false, // the first ember of the session has had its banner
+    embersDue: false, // the first ember has dropped; its banner waits for the one showing to fade
 
     newNight() {
       game.state = createState({ seed: nextSeed++, wave: debug.wave ?? 0, god: !!debug.god, gentle: game.gentle, embers: debug.embers ?? 0, map });
@@ -39,6 +40,7 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
       game.shownT = 0;
       game.saved = false;
       game.banner.t = 0;
+      game.embersDue = false;
     },
     pause() {
       if (game.screen === 'playing') game.screen = 'paused';
@@ -71,10 +73,15 @@ export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
         else if (e.type === 'wave') show(NIGHT.hours[e.a], WAVE_LINES[e.a] ?? '', 3);
         else if (e.type === 'lull' && e.a === 1) show('', 'Bring embers to the stove.', 3);
         else if (e.type === 'pickup' && e.a === 2) show('Shotgun', '1 and 2 switch guns', 3);
-        else if (e.type === 'emberDrop' && !game.taught) {
-          game.taught = true;
-          show('Embers', 'Take them before they cool.', 3);
-        } else if (e.type === 'upgrade') show(UPGRADE_LIST[e.a].name, UPGRADE_LIST[e.a].line, 2.5);
+        else if (e.type === 'emberDrop' && !game.taught) game.embersDue = true;
+        else if (e.type === 'upgrade') show(UPGRADE_LIST[e.a].name, UPGRADE_LIST[e.a].line, 2.5);
+      }
+      // The first ember's banner waits for whatever banner is showing to fade, so it never cuts off
+      // the night's opening line.
+      if (game.embersDue && game.banner.t <= 1) {
+        game.embersDue = false;
+        game.taught = true;
+        show('Embers', 'Take them before they cool.', 3);
       }
       const phase = s.night.phase;
       if (phase === 'dead' || phase === 'dawn') {

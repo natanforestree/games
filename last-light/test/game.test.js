@@ -132,6 +132,21 @@ test('embers: the first one of the session gets a banner, once; an upgrade shows
   assert.deepEqual([g.banner.text, g.banner.sub], [UPGRADE_LIST[id].name, UPGRADE_LIST[id].line]);
 });
 
+test('embers: the first banner waits until the live one is in its last second', () => {
+  const g = createGame({ storage: memoryStorage(), map, seed: 1 });
+  g.newNight();
+  const s = g.state;
+  spawnCreature(s, CRAWLER, 19.5, 26.5);
+  g.banner.text = '9 PM';
+  g.banner.sub = 'x';
+  g.banner.t = 3;
+  g.tick(intents({ facing: Math.PI / 2, fire: true }));
+  assert.equal(g.banner.text, '9 PM', 'the opening banner is not cut off');
+  g.frame(2.1);
+  g.tick(intents());
+  assert.deepEqual([g.banner.text, g.banner.sub], ['Embers', 'Take them before they cool.']);
+});
+
 test('the first lull asks for embers at the stove', () => {
   const g = createGame({ storage: memoryStorage(), map, seed: 1 });
   g.newNight();
