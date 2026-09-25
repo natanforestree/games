@@ -83,9 +83,9 @@ function take(state, id) {
 // and taking the card your key picked (intents.pick, 1 to 3). A key only takes a card that was already
 // showing (an offer drawn, or first shown, this update can't be taken until the next). While
 // state.choosing, keys 1 and 2 don't switch guns (weapons.js); it stays true through the update that
-// took a card.
+// took a card, but a card taken in the last update leaves nothing showing.
 export function updateChoosing(state, intents) {
-  const shown = state.choosing;
+  const shown = state.choosing && state.offerN > 0;
   const p = state.player, stove = state.stove;
   let near = false;
   if (state.night.phase === 'lull' && stove) {

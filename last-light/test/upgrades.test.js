@@ -169,6 +169,19 @@ test('a key pressed in the update that first draws the offer takes nothing, but 
   assert.equal(s.taken[0], id);
 });
 
+test('after taking a card, a key pressed the very next update takes nothing from the fresh offer', () => {
+  const s = atFire(16); // 6 + 10: two cards
+  run(s, DT); // the first offer is drawn
+  run(s, DT, intents({ pick: 1 })); // and taken
+  assert.equal(s.bought, 1);
+  run(s, DT, intents({ pick: 1 })); // the second offer is drawn this update: not seen yet
+  assert.deepEqual([s.bought, s.carried], [1, 10]);
+  assert.ok(s.offerN > 0);
+  const id = s.offer[0];
+  run(s, DT, intents({ pick: 1 }));
+  assert.deepEqual([s.bought, s.taken[1]], [2, id]);
+});
+
 test('the upgrade list: twelve, in five families, each with a name and a card line short enough for a card', () => {
   assert.equal(UPGRADE_COUNT, 12);
   assert.deepEqual([...new Set(UPGRADE_LIST.map((u) => u.family))], ['Rifle', 'Shotgun', 'Flares', 'Lantern', 'Hunter']);

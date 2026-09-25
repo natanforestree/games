@@ -60,6 +60,8 @@ test('a crawler at its feet: the bot looks down only as far as you can', () => {
   assert.equal(bot.pitch, -VIEW.maxPitch);
 });
 
+const ORDER = ['warm', 'quickLever', 'pierce', 'reach', 'dragon', 'deepMagazine', 'magnesium', 'steady', 'wick', 'snowshoes', 'slugs', 'pockets'];
+
 test('the bot fetches an ember it can reach before it cools, and leaves one that will be gone', () => {
   const s = quietState(); // on the porch
   dropEmber(s, 19.5, 24.5, 1);
@@ -86,9 +88,28 @@ test('at the fire the bot takes the card it likes best', () => {
   const offer = Array.from(s.offer.subarray(0, s.offerN));
   step(s, botIntents(s, bot, DT));
   assert.equal(s.bought, 1);
-  const order = ['warm', 'quickLever', 'pierce', 'reach', 'dragon', 'deepMagazine', 'magnesium', 'steady', 'wick', 'snowshoes', 'slugs', 'pockets'];
-  const best = offer.map((id) => UPGRADE_LIST[id].key).sort((a, b) => order.indexOf(a) - order.indexOf(b))[0];
+  const best = offer.map((id) => UPGRADE_LIST[id].key).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))[0];
   assert.equal(UPGRADE_LIST[s.taken[0]].key, best);
+});
+
+test('buying several cards in one visit, the bot takes the best of each offer', () => {
+  const s = quietState();
+  s.night.phase = 'lull';
+  s.night.t = 1e9;
+  s.carried = 30; // 6 + 10 + 14: three cards
+  s.player.x = s.stove.x;
+  s.player.y = s.stove.y + 0.9;
+  const bot = createBot();
+  for (let i = 0; i < 20 && s.bought < 3; i++) {
+    const shown = Array.from(s.offer.subarray(0, s.offerN));
+    const before = s.bought;
+    step(s, botIntents(s, bot, DT));
+    if (s.bought > before) {
+      const best = shown.map((id) => UPGRADE_LIST[id].key).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))[0];
+      assert.equal(UPGRADE_LIST[s.taken[before]].key, best, `card ${before + 1}`);
+    }
+  }
+  assert.equal(s.bought, 3);
 });
 
 test('over whole nights (it cannot die), the bot buys 5 to 7 upgrades a night on average', () => {

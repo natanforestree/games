@@ -1,7 +1,7 @@
 // ?debug=bot: the game plays itself, for testing whole nights. It turns and looks up or down (at a
 // human-ish rate) towards the nearest creature it can see and fires once on target, backs off from anything close, takes the
 // shotgun to close quarters, throws a flare into a crowd, reloads in quiet moments, and in a lull goes
-// for supplies and then warms up at the stove. It fetches embers it can reach safely before they
+// for supplies and then warms up at the stove. It fetches embers in plain sight that it can reach safely before they
 // cool (walking to one while it shoots, when the nearest creature isn't close), and at the fire takes
 // the card it likes best. It produces the same intents as the keyboard and mouse.
 import { canSee } from './raycast.js';
@@ -25,7 +25,7 @@ const PREFER = ['warm', 'quickLever', 'pierce', 'reach', 'dragon', 'deepMagazine
   .map((key) => UPGRADE_LIST.findIndex((u) => u.key === key));
 const FETCH = { range: 8, clear: 3, speed: 4.8, spare: 0.3 }; // how far, how clear of creatures, how fast it runs, time to spare
 
-// The nearest ember worth fetching: within range, clear of creatures, and still warm when it gets there.
+// The nearest ember worth fetching: within range, in plain sight, clear of creatures, and still warm when it gets there.
 function emberToFetch(state) {
   const p = state.player;
   let pick = null, best = FETCH.range;
@@ -33,6 +33,7 @@ function emberToFetch(state) {
     if (e.t <= 0) continue;
     const ex = e.x - p.x, ey = e.y - p.y, d = Math.sqrt(ex * ex + ey * ey);
     if (d >= best || e.t < d / FETCH.speed + FETCH.spare) continue;
+    if (!canSee(state.map, p.x, p.y, e.x, e.y)) continue;
     let clear = true;
     for (const c of state.creatures) {
       if (!c.alive || c.dying) continue;
@@ -88,7 +89,7 @@ export function botIntents(state, bot, dt) {
   out.forward = 0;
   out.strafe = 0;
   out.run = false;
-  out.pick = state.choosing ? bestCard(state) : 0;
+  out.pick = state.choosing && state.offerN > 0 ? bestCard(state) : 0;
   const ember = emberToFetch(state);
 
   // The nearest creature in sight, except that the Mother comes first when nothing is close.
