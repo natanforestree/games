@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { step } from '../src/sim.js';
+import { step, createState } from '../src/sim.js';
 import { createBot, botIntents } from '../src/bot.js';
 import { spawnCreature, CRAWLER, MOTHER } from '../src/creatures.js';
 import { DT, VIEW } from '../src/tuning.js';
 import { quietState } from './helpers.js';
+import { dropEmber } from '../src/embers.js';
+import { UPGRADE_LIST } from '../src/upgrades.js';
 
 test('the bot looks down to shoot a crawler at its feet', () => {
   const s = quietState(); // on the porch, facing south
@@ -56,4 +58,48 @@ test('a crawler at its feet: the bot looks down only as far as you can', () => {
     assert.ok(bot.pitch >= -VIEW.maxPitch, `${bot.pitch}`);
   }
   assert.equal(bot.pitch, -VIEW.maxPitch);
+});
+
+test('the bot fetches an ember it can reach before it cools, and leaves one that will be gone', () => {
+  const s = quietState(); // on the porch
+  dropEmber(s, 19.5, 24.5, 1);
+  const bot = createBot();
+  for (let i = 0; i < 2 / DT && s.carried === 0; i++) step(s, botIntents(s, bot, DT));
+  assert.equal(s.carried, 1);
+  const t = quietState();
+  const e = dropEmber(t, 19.5, 26.5, 3);
+  e.t = 0.5; // six cells off, half a second left: not worth it
+  const other = createBot();
+  for (let i = 0; i < 0.4 / DT; i++) step(t, botIntents(t, other, DT));
+  assert.ok(t.player.y < 21, `stayed put: ${t.player.y}`);
+});
+
+test('at the fire the bot takes the card it likes best', () => {
+  const s = quietState();
+  s.night.phase = 'lull';
+  s.night.t = 1e9;
+  s.carried = 6;
+  s.player.x = s.stove.x;
+  s.player.y = s.stove.y + 0.9;
+  const bot = createBot();
+  step(s, botIntents(s, bot, DT)); // the fire draws its three
+  const offer = Array.from(s.offer.subarray(0, s.offerN));
+  step(s, botIntents(s, bot, DT));
+  assert.equal(s.bought, 1);
+  const order = ['warm', 'quickLever', 'pierce', 'reach', 'dragon', 'deepMagazine', 'magnesium', 'steady', 'wick', 'snowshoes', 'slugs', 'pockets'];
+  const best = offer.map((id) => UPGRADE_LIST[id].key).sort((a, b) => order.indexOf(a) - order.indexOf(b))[0];
+  assert.equal(UPGRADE_LIST[s.taken[0]].key, best);
+});
+
+test('over whole nights (it cannot die), the bot buys 5 to 7 upgrades a night on average', () => {
+  let picks = 0;
+  for (let seed = 1; seed <= 8; seed++) {
+    const s = createState({ seed, god: true });
+    const bot = createBot();
+    for (let i = 0; i < (20 * 60) / DT && s.night.phase !== 'dawn'; i++) step(s, botIntents(s, bot, DT));
+    assert.equal(s.night.phase, 'dawn', `seed ${seed}`);
+    picks += s.bought;
+  }
+  const avg = picks / 8;
+  assert.ok(avg >= 5 && avg <= 7, `${avg} a night`);
 });

@@ -45,9 +45,16 @@ test('an update allocates nothing that lasts: the pools keep their objects', () 
   const s = createState({ seed: 3, god: true });
   const bot = createBot();
   const creatures = s.creatures, events = s.events, first = s.creatures[0], flares = s.flares;
+  const embers = s.embers, ember = s.embers[0], offer = s.offer, taken = s.taken, perks = s.perks;
   for (let i = 0; i < 90 / DT; i++) step(s, botIntents(s, bot, DT));
   assert.equal(s.creatures, creatures);
   assert.equal(s.creatures[0], first);
   assert.equal(s.events, events);
   assert.equal(s.flares, flares);
+  assert.equal(s.embers, embers);
+  assert.equal(s.embers[0], ember);
+  assert.equal(s.offer, offer);
+  assert.equal(s.taken, taken);
+  assert.equal(s.perks, perks);
+  assert.ok(s.bought > 0, 'the bot bought something in 90 s, so choosing ran too');
 });
