@@ -74,7 +74,7 @@ These follow from the spec but are decided here, so reviewers can see them in on
 4. **Her births** only happen while the wave has room under its alive cap.
 5. **The woodpile** sits two cells east of the cabin (x 26–27), leaving a two-cell gap.
 6. **The stove's light** is full to 2.5 cells and dark by 8, so its glow spills out of the windows and doorway onto the snow.
-7. **A leaper that can't see you** (say you're in the cabin) chases and bites like a crawler (8 damage every 0.8 s).
+7. **A leaper** circles while it sees you, and keeps circling through up to 0.5 s out of sight (`CREATURES.leaper.lostSight`). Its `circleT` is kept between circles and cleared on landing. If a wall cuts a leap short, it "rushes": it comes straight in and pounces from close range (`closeLeap`), skipping the circle until it next lands. The crawler-style bite remains as a fallback.
 8. **The shot's width.** A creature's `hit` width (how wide it is to a shot) is separate from its collision `radius`.
 9. **Weapon switches.** Asking for the gun you already hold, or the one already coming up, does nothing. The prototype's bot found that re-pressing restarted the switch forever.
 10. **`?wave=N`** is 1-based (1–8), so `?wave=8` shows the Mother, as the spec's browser check says. From wave 3 (11 PM) on, you start with the shotgun.

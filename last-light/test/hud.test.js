@@ -104,3 +104,16 @@ test('the title shows your best night; the death screen the hour it ended', () =
   drawScreen(ctx, art, { w: 480, h: 270 }, 'dead', { time: 0, best: { hour: 5, dawns: 0 }, reached: 3, kills: 40 });
   assert.ok(ctx.calls.texts.some((t) => t.str.startsWith('It was 12 AM.')));
 });
+
+test('the death and dawn screens say "after-eater" singular for one, plural otherwise', () => {
+  const art = fakeArt();
+  let ctx = fakeContext();
+  drawScreen(ctx, art, { w: 480, h: 270 }, 'dead', { time: 0, best: { hour: 5, dawns: 0 }, reached: 3, kills: 1 });
+  assert.ok(ctx.calls.texts.some((t) => t.str === 'It was 12 AM.  1 after-eater fell.'));
+  ctx = fakeContext();
+  drawScreen(ctx, art, { w: 480, h: 270 }, 'dead', { time: 0, best: { hour: 5, dawns: 0 }, reached: 3, kills: 40 });
+  assert.ok(ctx.calls.texts.some((t) => t.str === 'It was 12 AM.  40 after-eaters fell.'));
+  ctx = fakeContext();
+  drawScreen(ctx, art, { w: 480, h: 270 }, 'dawn', { time: 0, best: { hour: 5, dawns: 0 }, reached: 8, kills: 1 });
+  assert.ok(ctx.calls.texts.some((t) => t.str === 'You held the cabin.  1 after-eater fell.'));
+});

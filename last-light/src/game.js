@@ -10,7 +10,7 @@ const DEAD_DELAY = 1.5; // seconds between dying and the death screen
 const DAWN_DELAY = LIGHT.dawnTime + 2;
 const CLICK_GUARD = 2.5; // seconds the death or dawn screen is up before a click starts the next night
 // A line under some hours' banners.
-const WAVE_LINES = ["They're coming out of the trees.", '', 'Something leaps in the dark.', '', '', '', '', 'Something huge is coming.'];
+const WAVE_LINES = ['The after-eaters are coming out of the trees.', '', 'Something leaps in the dark.', '', '', '', '', 'Something huge is coming.'];
 
 export function createGame({ storage, map, seed = Date.now(), debug = {} }) {
   let nextSeed = seed >>> 0;

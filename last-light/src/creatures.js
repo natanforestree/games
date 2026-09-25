@@ -1,4 +1,4 @@
-// The Hungry. Every creature lives in a fixed pool (no allocation mid-night) and runs a small state
+// The after-eaters. Every creature lives in a fixed pool (no allocation mid-night) and runs a small state
 // machine each update:
 //   crawler  chases and bites
 //   gaunt    chases, winds up, swipes

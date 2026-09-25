@@ -67,7 +67,7 @@ return {
   },
 
   -- Last Light: copied from art/last-light/palette.lua (the night, the snow, the cabin's logs, the pines,
-  -- stone, the fire and the window's glow, and the Hungry's eyes).
+  -- stone, the fire and the window's glow, and the after-eaters' eyes).
   lastLight = {
     void = "#05070c", night1 = "#0b0f1a", night2 = "#121a2b", night3 = "#1c2740", night4 = "#2a3a58",
     snow0 = "#3b4660", snow1 = "#5d6b88", snow2 = "#8a98b4", snow3 = "#b9c5da", snow4 = "#e6edf6",

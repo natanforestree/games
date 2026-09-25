@@ -20,6 +20,8 @@ const SHOTGUN_RELOAD = ['shotgun-reload-1', 'shotgun-reload-2', 'shotgun-reload-
 // Numbers as text, made once, so the HUD doesn't build new strings every frame.
 const NUMBERS = Array.from({ length: 201 }, (_, i) => String(i));
 const num = (n) => NUMBERS[Math.max(0, Math.min(200, Math.ceil(n)))];
+// "N after-eaters fell", or "1 after-eater fell" for one.
+const fellText = (n) => `${n} after-eater${n === 1 ? '' : 's'} fell`;
 
 const shown = { name: '', drop: 0 };
 const third = (t, whole) => Math.min(2, Math.max(0, Math.floor((1 - t / whole) * 3)));
@@ -153,11 +155,11 @@ export function drawScreen(ctx, art, view, screen, info) {
     text(ctx, '1/2 guns  F flare  Shift run  Esc pause  M mute', w / 2, h - 18, ui.dim, 8, 'center');
   } else if (screen === 'dead') {
     text(ctx, "You didn't see the dawn", w / 2, h * 0.32, ui.hurt, 16, 'center');
-    text(ctx, `It was ${NIGHT.hours[Math.min(info.reached, NIGHT.hours.length - 1)]}.  ${info.kills} of them fell.`, w / 2, h * 0.32 + 24, ui.dim, 8, 'center');
+    text(ctx, `It was ${NIGHT.hours[Math.min(info.reached, NIGHT.hours.length - 1)]}.  ${fellText(info.kills)}.`, w / 2, h * 0.32 + 24, ui.dim, 8, 'center');
     if (blink) text(ctx, 'Click to try again', w / 2, h * 0.62, ui.text, 8, 'center');
   } else if (screen === 'dawn') {
     text(ctx, 'Dawn', w / 2, h * 0.3, ui.text, 24, 'center');
-    text(ctx, `You held the cabin.  ${info.kills} of them fell.`, w / 2, h * 0.3 + 30, ui.dim, 8, 'center');
+    text(ctx, `You held the cabin.  ${fellText(info.kills)}.`, w / 2, h * 0.3 + 30, ui.dim, 8, 'center');
     if (blink) text(ctx, 'Click for another night', w / 2, h * 0.62, ui.text, 8, 'center');
   }
 }

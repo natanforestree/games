@@ -62,7 +62,7 @@ That writes the editable `art/snake-icon.aseprite` and the `snake/icon.png` the 
 
 ## Last Light
 
-`last-light/` is a first-person survival horror game: you hold a snowy log cabin through one winter night, from dusk to dawn, against pale hungry things that come out of the trees. It's pixel art drawn by a raycaster. The design spec is `docs/superpowers/specs/2026-09-24-last-light-design.md`.
+`last-light/` is a first-person survival horror game: you hold a snowy log cabin through one winter night, from dusk to dawn, against the after-eaters, pale starved things that come out of the trees. It's pixel art drawn by a raycaster. The design spec is `docs/superpowers/specs/2026-09-24-last-light-design.md`.
 
 - Tests (Node 22, no dependencies): `cd last-light && npm test`. Bench: `npm run bench` (the target is under 4 ms a frame).
 - Debug: `?debug=fps` shows the frame rate, and `?debug=bot` plays by itself (add `&speed=N` to speed it up). Debug flags combine with a comma: `?debug=bot,fps`. `?wave=N` (1–8) starts at that wave, `?god` means you can't die, and `?seed=N` fixes the night's randomness. For example, `?debug=bot,fps&god&speed=20&seed=2` watches a whole night play out fast.

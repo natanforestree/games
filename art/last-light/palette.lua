@@ -17,7 +17,7 @@ P.order = {
   "stone0", "stone1", "stone2", "stone3", "iron0", "iron1", "iron2",
   -- fire: embers, the lantern, the muzzle flash, the window's glow
   "ember0", "fire1", "fire2", "fire3", "fire4", "window",
-  -- the Hungry: bone-pale flesh, mouths, glowing eyes, dark ichor
+  -- the after-eaters: bone-pale flesh, mouths, glowing eyes, dark ichor
   "flesh0", "flesh1", "flesh2", "flesh3", "flesh4", "mouth", "gum", "eye1", "eye2", "ichor0", "ichor1",
   -- the flare's red
   "flare1", "flare2",

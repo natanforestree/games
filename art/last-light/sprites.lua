@@ -4,7 +4,7 @@
 -- root:
 --   aseprite -b --script art/last-light/sprites.lua
 --
--- The Hungry are built from shared body parts (a skull with its eyes and jaw, a ribcage and spine,
+-- The after-eaters are built from shared body parts (a skull with its eyes and jaw, a ribcage and spine,
 -- tapered limbs posed by a joint angle or two-bone IK, long fingers) drawn into a frame that keeps how
 -- much each pixel faces your lantern. `finish` turns that into bone-pale flesh, darker round the
 -- silhouette's edge so it reads against the dark. A pose is a handful of numbers (where the body sits,
@@ -1037,7 +1037,7 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- The props, the pickups and the burning flare, painted straight in palette colours and lit like the
--- Hungry: from the front, a little above and to the left. Fire and the flare's red are glow colours,
+-- after-eaters: from the front, a little above and to the left. Fire and the flare's red are glow colours,
 -- so they shine in the dark.
 local IRON = { C.iron0, C.iron1, C.iron2, C.stone1 }
 local STONE = { C.stone0, C.stone1, C.stone2, C.stone3 }

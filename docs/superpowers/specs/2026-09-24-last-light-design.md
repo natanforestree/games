@@ -3,6 +3,8 @@
 **Date:** 2026-09-24
 **Status:** Approved by Nathan (2026-09-24). The plan is `docs/superpowers/plans/2026-09-24-last-light.md`; its "Refinements to the spec" section records what was decided while planning (from a working prototype).
 
+**Note (2026-09-24):** Nathan named the creatures **the after-eaters**, after the German folklore word *Nachzehrer* ("after-eater"). This knowingly loosens this spec's "no real culture's beliefs or history" rule for one public-domain folklore word; nothing is taken from the book itself.
+
 A first-person wave-survival shooter for the games site (`natanforestree.github.io/games/`). You hold a cabin in a snowy clearing through one winter night, from dusk to dawn, against pale hungry things that come out of the trees. It's pixel art, drawn by a Wolfenstein-style raycaster, and it has to feel **super smooth**: that's Nathan's first requirement, and it shapes the engine.
 
 The mood takes after horror Nathan loves (a patient, hungry thing in a frontier winter; the hunter becoming the hunted), but the creatures, place and story are our own. Nothing is taken from any book, and no real culture's beliefs or history are used.
