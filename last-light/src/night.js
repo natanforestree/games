@@ -3,11 +3,11 @@
 // you. A wave ends when all of its creatures (and the Mother's brood) are dead. In a lull the stove
 // heals you, and supplies turn up: a flare, shells once you have the shotgun, and the shotgun itself
 // before 11 PM. Clearing 4 AM brings the dawn; running out of health ends the night.
-import { NIGHT, FLARE, SHOTGUN, SHELL_BOX, LIGHT } from './tuning.js';
+import { NIGHT, SHOTGUN, SHELL_BOX, LIGHT, PERKS } from './tuning.js';
 import { spawnCreature, aliveCount, KINDS, MOTHER } from './creatures.js';
 import { nextRandom } from './rng.js';
 import { emit } from './events.js';
-import { giveShotgun } from './weapons.js';
+import { giveShotgun, flareMax } from './weapons.js';
 
 export const LAST_WAVE = NIGHT.waves.length - 1;
 export const FLARE_PICKUP = 0, SHELLS_PICKUP = 1, SHOTGUN_PICKUP = 2;
@@ -93,8 +93,9 @@ function collect(state) {
     const dx = k.x - p.x, dy = k.y - p.y;
     if (!k.active || Math.sqrt(dx * dx + dy * dy) > NIGHT.pickupReach) continue;
     if (k.kind === FLARE_PICKUP) {
-      if (g.flares >= FLARE.max) continue;
-      g.flares++;
+      const max = flareMax(state);
+      if (g.flares >= max) continue;
+      g.flares = Math.min(max, g.flares + (state.perks.pockets ? PERKS.pockets.perLull : 1));
     } else if (k.kind === SHELLS_PICKUP) {
       if (g.spare >= SHOTGUN.maxSpare) continue;
       g.spare = Math.min(SHOTGUN.maxSpare, g.spare + SHELL_BOX);

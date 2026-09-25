@@ -5,9 +5,15 @@
 // The rifle holds 8 and reloads a round at a time; firing interrupts a reload, and an empty rifle
 // starts reloading by itself. The shotgun fires 8 pellets in a spread from 2 barrels, and reloads both
 // at once from limited spare shells. Holding the trigger keeps firing as fast as each gun allows.
-import { RIFLE, SHOTGUN, SWITCH_TIME, FLARE, FEEL, CREATURES, LIGHT, PLAYER, AIM } from './tuning.js';
+//
+// The fire's upgrades (upgrades.js) change them through state.perks: Through-and-through (a rifle round
+// carries on into the next creature), Steady hands (double damage after standing still), Slugs (one
+// heavy ball instead of pellets), Dragon's breath (the shotgun sets creatures burning), Magnesium
+// (flares burn twice as long) and Deep pockets (more flares). Quick lever and Deep magazine are the
+// gun's own `interval` and `rounds`.
+import { RIFLE, SHOTGUN, SWITCH_TIME, FLARE, FEEL, CREATURES, LIGHT, PLAYER, AIM, PERKS } from './tuning.js';
 import { castRay, createHit } from './raycast.js';
-import { damageCreature, KINDS } from './creatures.js';
+import { damageCreature, igniteCreature, KINDS } from './creatures.js';
 import { randomBetween } from './rng.js';
 import { emit } from './events.js';
 
@@ -21,6 +27,8 @@ export function createGun() {
     current: RIFLE_ID, next: RIFLE_ID, switching: 0,
     cooldown: 0, reloading: false, reloadT: 0,
     rifle: RIFLE.rounds,
+    rounds: RIFLE.rounds, // the rifle's capacity (Deep magazine)
+    interval: RIFLE.interval, // seconds between rifle shots (Quick lever)
     hasShotgun: false, shells: 0, spare: 0,
     flares: FLARE.start, flareT: 0,
     kick: 0, // view kick, radians, springing back
@@ -33,19 +41,25 @@ export function createFlares() {
   return Array.from({ length: MAX_FLARES }, () => ({ x: 0, y: 0, t: 0 }));
 }
 
+// The most flares you can carry.
+export const flareMax = (state) => (state.perks.pockets ? PERKS.pockets.max : FLARE.max);
+
+// Steady hands is ready: you've stood still long enough for the next rifle shot to hit double.
+export const steadyReady = (state) => state.perks.steady && state.player.stillT >= PERKS.steady.still;
+
 const wallHit = createHit();
 const shot = { creature: null, dist: 0 };
 
 // The nearest creature along a ray from your eyes at (ox, oy), at `angle` and `pitch` (up is positive),
-// before any wall and within `range`. Returns the reusable `shot` ({ creature, dist }), with creature
-// null for a miss.
-export function traceShot(state, ox, oy, angle, range, pitch = 0) {
+// before any wall and within `range`, leaving out `skip`. Returns the reusable `shot`
+// ({ creature, dist }), with creature null for a miss.
+export function traceShot(state, ox, oy, angle, range, pitch = 0, skip = null) {
   const dx = Math.cos(angle), dy = Math.sin(angle), rise = Math.tan(pitch);
   const wall = castRay(state.map, ox, oy, dx, dy, wallHit, range) ? wallHit.dist : range;
   shot.creature = null;
   shot.dist = wall;
   for (const c of state.creatures) {
-    if (!c.alive || c.dying) continue;
+    if (!c.alive || c.dying || c === skip) continue;
     const rx = c.x - ox, ry = c.y - oy;
     const along = rx * dx + ry * dy;
     if (along <= 0 || along >= shot.dist) continue;
@@ -72,7 +86,7 @@ function startSwitch(state, to) {
 function startReload(state) {
   const g = state.gun;
   if (g.reloading || g.switching > 0) return;
-  if (g.current === RIFLE_ID && g.rifle < RIFLE.rounds) {
+  if (g.current === RIFLE_ID && g.rifle < g.rounds) {
     g.reloading = true;
     g.reloadT = RIFLE.reloadPerRound;
   } else if (g.current === SHOTGUN_ID && g.shells < SHOTGUN.shells && g.spare > 0) {
@@ -82,7 +96,7 @@ function startReload(state) {
 }
 
 function fire(state) {
-  const g = state.gun, p = state.player;
+  const g = state.gun, p = state.player, perks = state.perks;
   if (g.current === RIFLE_ID) {
     if (g.rifle === 0) {
       if (!g.reloading) {
@@ -93,9 +107,16 @@ function fire(state) {
     }
     g.reloading = false;
     g.rifle--;
-    g.cooldown = RIFLE.interval;
-    const s = traceShot(state, p.x, p.y, p.facing, RIFLE.range, p.pitch);
-    if (s.creature) damageCreature(state, s.creature, RIFLE.damage);
+    g.cooldown = g.interval;
+    const damage = RIFLE.damage * (steadyReady(state) ? PERKS.steady.damage : 1);
+    const first = traceShot(state, p.x, p.y, p.facing, RIFLE.range, p.pitch).creature;
+    if (first) {
+      damageCreature(state, first, damage);
+      if (perks.pierce) {
+        const next = traceShot(state, p.x, p.y, p.facing, RIFLE.range, p.pitch, first).creature;
+        if (next) damageCreature(state, next, damage);
+      }
+    }
     g.kick += FEEL.kick.rifle;
     emit(state, 'shot', p.x, p.y, RIFLE_ID);
     if (g.rifle === 0) startReload(state);
@@ -110,12 +131,24 @@ function fire(state) {
     g.reloading = false;
     g.shells--;
     g.cooldown = SHOTGUN.interval;
-    const n = SHOTGUN.pellets;
-    for (let i = 0; i < n; i++) {
-      const spread = SHOTGUN.spread * (((i + 0.5) / n) * 2 - 1);
-      const jitter = randomBetween(state.rng, -0.3, 0.3) * (SHOTGUN.spread / n);
-      const s = traceShot(state, p.x, p.y, p.facing + spread + jitter, SHOTGUN.range, p.pitch);
-      if (s.creature) damageCreature(state, s.creature, s.dist > SHOTGUN.falloff ? SHOTGUN.damage / 2 : SHOTGUN.damage);
+    if (perks.slugs) {
+      const c = traceShot(state, p.x, p.y, p.facing, PERKS.slug.range, p.pitch).creature;
+      if (c) {
+        damageCreature(state, c, PERKS.slug.damage);
+        if (perks.dragon) igniteCreature(state, c);
+      }
+    } else {
+      const n = SHOTGUN.pellets;
+      for (let i = 0; i < n; i++) {
+        const spread = SHOTGUN.spread * (((i + 0.5) / n) * 2 - 1);
+        const jitter = randomBetween(state.rng, -0.3, 0.3) * (SHOTGUN.spread / n);
+        const s = traceShot(state, p.x, p.y, p.facing + spread + jitter, SHOTGUN.range, p.pitch);
+        const c = s.creature;
+        if (c) {
+          damageCreature(state, c, s.dist > SHOTGUN.falloff ? SHOTGUN.damage / 2 : SHOTGUN.damage);
+          if (perks.dragon) igniteCreature(state, c);
+        }
+      }
     }
     g.kick += FEEL.kick.shotgun;
     state.shake = FEEL.shakeTime;
@@ -143,13 +176,14 @@ function throwFlare(state) {
   const d = castRay(state.map, p.x, p.y, dx, dy, flareHit, FLARE.throw) ? Math.max(0, flareHit.dist - 0.3) : FLARE.throw;
   slot.x = p.x + dx * d;
   slot.y = p.y + dy * d;
-  slot.t = FLARE.burn;
+  slot.t = FLARE.burn * (state.perks.magnesium ? PERKS.magnesium : 1);
   g.flares--;
   g.flareT = FLARE.cooldown;
   emit(state, 'flareThrow', slot.x, slot.y);
 }
 
 // intents: { fire (held), reload (presses), weapon (0 none, 1 rifle, 2 shotgun), weaponStep (-1, 0, 1), flare (presses) }
+// At the fire (state.choosing), keys 1 and 2 pick cards, so `weapon` is ignored; the wheel still switches.
 export function updateGun(state, intents, dt) {
   const g = state.gun;
   const loading = g.reloading;
@@ -158,8 +192,9 @@ export function updateGun(state, intents, dt) {
   if (g.flareT > 0) g.flareT -= dt;
   g.kick -= g.kick * Math.min(1, FEEL.kickReturn * dt);
 
-  if (intents.weapon === 1) startSwitch(state, RIFLE_ID);
-  else if (intents.weapon === 2) startSwitch(state, SHOTGUN_ID);
+  const key = state.choosing ? 0 : intents.weapon;
+  if (key === 1) startSwitch(state, RIFLE_ID);
+  else if (key === 2) startSwitch(state, SHOTGUN_ID);
   else if (intents.weaponStep) startSwitch(state, (g.switching > 0 ? g.next : g.current) === RIFLE_ID ? SHOTGUN_ID : RIFLE_ID);
   if (g.switching > 0) {
     g.switching -= dt;
@@ -175,7 +210,7 @@ export function updateGun(state, intents, dt) {
       if (g.current === RIFLE_ID) {
         g.rifle++;
         emit(state, 'reload', state.player.x, state.player.y, RIFLE_ID);
-        if (g.rifle < RIFLE.rounds) g.reloadT += RIFLE.reloadPerRound;
+        if (g.rifle < g.rounds) g.reloadT += RIFLE.reloadPerRound;
         else g.reloading = false;
       } else {
         const load = Math.min(SHOTGUN.shells - g.shells, g.spare);

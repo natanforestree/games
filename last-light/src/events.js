@@ -16,6 +16,12 @@
 //   birth         the Mother
 //   spawn         the creature    kind
 //   pickup        the spot        0 flare, 1 shells, 2 shotgun
+//   emberDrop     where it fell   value
+//   ember         where it was    value                (you took it)
+//   emberOut      where it was                         (it cooled out)
+//   offer         the stove       how many cards
+//   upgrade       you             upgrade id
+//   alight        the creature    kind                 (set burning)
 //   wave          -               wave index
 //   lull          -               the next wave's index
 //   dawn / dead   -

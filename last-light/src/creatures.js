@@ -8,26 +8,29 @@
 //            short of you, it comes straight in instead of circling, and pounces once it's close.
 //   mother   a slow, huge gaunt that also gives birth to crawlers (within the wave's cap)
 // All of them head straight for you when they can see you nearby, and follow the flow field when they
-// can't. Flare light halves their speed. They push each other apart, and never into you.
-import { CREATURES, MAX_CREATURES, FLARE, NIGHT } from './tuning.js';
+// can't. Flare light halves their speed. They push each other apart, and never into you. One set alight
+// (Dragon's breath) burns for a few seconds. Killed, by a shot or by fire, each drops an ember.
+import { CREATURES, MAX_CREATURES, FLARE, NIGHT, EMBERS, BURN, PERKS } from './tuning.js';
 import { moveBody, pushOutOfCircle, separate } from './collide.js';
 import { canSee } from './raycast.js';
 import { flowDir } from './flowfield.js';
 import { nextRandom, randomBetween } from './rng.js';
 import { emit } from './events.js';
 import { hurtPlayer } from './player.js';
+import { dropEmber } from './embers.js';
 
 export const KINDS = ['crawler', 'gaunt', 'leaper', 'mother'];
 export const CRAWLER = 0, GAUNT = 1, LEAPER = 2, MOTHER = 3;
 const T = KINDS.map((k) => CREATURES[k]);
 const WEIGHT = KINDS.map((k) => CREATURES.pushWeight[k]);
+const EMBER = KINDS.map((k) => EMBERS.value[k]);
 
 export function createCreatures(n = MAX_CREATURES) {
   return Array.from({ length: n }, (_, id) => ({
     id, alive: false, dying: 0, kind: 0, x: 0, y: 0, px: 0, py: 0, radius: 0, hp: 0,
     heading: 0, moving: false, walked: 0, mode: 'chase', t: 0, attackT: 0, flinch: 0, hurtT: 0,
     circleDir: 1, circleT: 0, unseen: 0, rush: false, leapX: 0, leapY: 0, leapHit: false, lift: 0, birthT: 0,
-    struck: 0,
+    struck: 0, burnT: 0,
   }));
 }
 
@@ -64,6 +67,7 @@ export function spawnCreature(state, kind, x, y) {
   c.lift = 0;
   c.birthT = t.birthEvery ?? 0;
   c.struck = 0;
+  c.burnT = 0;
   emit(state, 'spawn', x, y, kind);
   return c;
 }
@@ -83,6 +87,15 @@ export function inFlare(state, x, y) {
   return false;
 }
 
+// It dies: the death animation starts, it counts, and it drops its ember.
+function kill(state, c) {
+  c.dying = CREATURES.die;
+  c.lift = 0;
+  c.burnT = 0;
+  state.stats.kills++;
+  dropEmber(state, c.x, c.y, EMBER[c.kind]);
+}
+
 // Damages a creature; flare light makes it hurt more. Returns true if this killed it.
 export function damageCreature(state, c, amount) {
   if (!c.alive || c.dying) return false;
@@ -91,13 +104,16 @@ export function damageCreature(state, c, amount) {
   c.flinch = T[c.kind].flinch;
   c.hurtT = 0.1;
   const killed = c.hp <= 0;
-  if (killed) {
-    c.dying = CREATURES.die;
-    c.lift = 0;
-    state.stats.kills++;
-  }
+  if (killed) kill(state, c);
   emit(state, 'hit', c.x, c.y, c.kind, killed ? 1 : 0);
   return killed;
+}
+
+// Sets a creature burning, or keeps it burning from now: BURN.time seconds, twice that with Magnesium.
+export function igniteCreature(state, c) {
+  if (!c.alive || c.dying) return;
+  if (c.burnT <= 0) emit(state, 'alight', c.x, c.y, c.kind);
+  c.burnT = BURN.time * (state.perks.magnesium ? PERKS.magnesium : 1);
 }
 
 const dir = { x: 0, y: 0 };
@@ -141,6 +157,16 @@ function update(state, c, dt) {
     c.dying -= dt;
     if (c.dying <= 0) c.alive = false;
     return;
+  }
+  // Burning: quiet damage (flare light makes it worse); only a kill is heard.
+  if (c.burnT > 0) {
+    c.burnT -= dt;
+    c.hp -= BURN.dps * dt * (inFlare(state, c.x, c.y) ? FLARE.damage : 1);
+    if (c.hp <= 0) {
+      kill(state, c);
+      emit(state, 'hit', c.x, c.y, c.kind, 1);
+      return;
+    }
   }
   const dx = p.x - c.x, dy = p.y - c.y, d = Math.sqrt(dx * dx + dy * dy);
   const touch = d - c.radius - p.radius; // gap between the two circles

@@ -89,6 +89,38 @@ export const CREATURES = {
 };
 export const MAX_CREATURES = 64;
 
+// Embers: the warmth an after-eater stole, spilling out where it dies. They glow on the snow and cool;
+// you walk to them to take them, and spend them at the stove in a lull (upgrades.js).
+export const EMBERS = {
+  value: { crawler: 1, gaunt: 3, leaper: 2, mother: 0 }, // hers is the last hour: embers would buy nothing
+  life: 15, // seconds on the snow
+  flicker: 3, // for its last seconds it flickers and dims
+  reach: 0.6, // how close you walk to take one
+  longReach: 2, // with Long reach
+  drift: 3, // cells a second towards you, with "Embers come to you"
+  max: 48, // on the ground at once; a new one takes the place of the coolest
+  light: { full: 0.2, dark: 1.5, intensity: 0.5 }, // scaled by value, up to 1.5x
+  warm: 2, // health per ember of value, with Warm hands
+};
+
+// The fire's upgrades: the n-th of the night (from 0) costs cost + step * n embers; it offers `offer`.
+export const UPGRADES = { cost: 6, step: 4, offer: 3 };
+
+// Burning (Dragon's breath): damage a second, for `time` seconds (longer with Magnesium).
+export const BURN = { dps: 4, time: 3 };
+
+// What the upgrades change.
+export const PERKS = {
+  quickLever: 0.3, // seconds between rifle shots
+  steady: { still: 0.5, speed: 0.1, damage: 2 }, // still this long (moving slower than speed): x damage
+  deepMagazine: 12, // rifle rounds
+  slug: { damage: 40, range: 20 },
+  magnesium: 2, // flares and burning last this many times as long
+  pockets: { max: 8, perLull: 2 }, // flares carried, and how many a lull's flare gives
+  wick: { full: 3.5, dark: 9 }, // the lantern's reach
+  snowshoes: 1.2, // times your speed
+};
+
 export const NIGHT = {
   dusk: 6,
   lull: 20,
@@ -133,4 +165,5 @@ export const KEYS = {
   shotgun: ['Digit2'],
   flare: ['KeyF'],
   mute: ['KeyM'],
+  pick: ['Digit1', 'Digit2', 'Digit3'], // the fire's cards, in order (1 and 2 also switch guns away from it)
 };

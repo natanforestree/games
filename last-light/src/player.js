@@ -1,6 +1,7 @@
 // You: a circle that walks and runs with snappy acceleration, slides along walls and round props,
-// and remembers where it was last update so the renderer can blend between the two.
-import { PLAYER, FEEL } from './tuning.js';
+// and remembers where it was last update so the renderer can blend between the two. It also keeps how
+// long you've stood still (Steady hands reads it).
+import { PLAYER, FEEL, PERKS } from './tuning.js';
 import { moveBody, pushOutOfCircle } from './collide.js';
 import { emit } from './events.js';
 
@@ -11,12 +12,13 @@ export function createPlayer(start) {
   return {
     x: start.x, y: start.y, px: start.x, py: start.y,
     vx: 0, vy: 0, radius: PLAYER.radius, facing: start.facing, pitch: 0,
-    health: PLAYER.health, walked: 0, running: false,
+    health: PLAYER.health, walked: 0, running: false, stillT: 0,
   };
 }
 
-// intents: { facing, pitch (up is positive), forward (-1..1), strafe (-1..1, positive is right), run }
-export function movePlayer(map, p, intents, dt) {
+// intents: { facing, pitch (up is positive), forward (-1..1), strafe (-1..1, positive is right), run }.
+// `speed` scales your walk, run and acceleration (Snowshoes).
+export function movePlayer(map, p, intents, dt, speed = 1) {
   p.px = p.x;
   p.py = p.y;
   p.facing = intents.facing;
@@ -30,11 +32,11 @@ export function movePlayer(map, p, intents, dt) {
     wy /= wl;
   }
   p.running = intents.run && wl > 0;
-  const max = p.running ? PLAYER.run : PLAYER.walk;
+  const max = (p.running ? PLAYER.run : PLAYER.walk) * speed;
   const tx = wx * max, ty = wy * max;
   const dvx = tx - p.vx, dvy = ty - p.vy;
   const dl = Math.sqrt(dvx * dvx + dvy * dvy);
-  const step = (wl > 0 ? ACCEL : DECEL) * dt;
+  const step = (wl > 0 ? ACCEL : DECEL) * speed * dt;
   if (dl <= step) {
     p.vx = tx;
     p.vy = ty;
@@ -44,8 +46,9 @@ export function movePlayer(map, p, intents, dt) {
   }
   moveBody(map, p, p.vx * dt, p.vy * dt);
   for (const prop of map.props) pushOutOfCircle(p, prop.x, prop.y, prop.radius);
-  const mx = p.x - p.px, my = p.y - p.py;
-  p.walked += Math.sqrt(mx * mx + my * my);
+  const mx = p.x - p.px, my = p.y - p.py, moved = Math.sqrt(mx * mx + my * my);
+  p.walked += moved;
+  p.stillT = moved < PERKS.steady.speed * dt ? p.stillT + dt : 0;
 }
 
 // Something hit you for `amount`, from (x, y). With ?god you never drop below 1.

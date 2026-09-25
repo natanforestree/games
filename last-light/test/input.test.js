@@ -131,6 +131,22 @@ test('presses are latched once: reload, flare (F or right click), weapon keys', 
   assert.equal(input.sample().reload, 1);
 });
 
+test("keys 1 to 3 are the fire's cards too: 1 and 2 still give their gun, 3 only a card", () => {
+  const { win, input } = setup();
+  win.fire('keydown', { code: 'Digit2' });
+  let s = input.sample();
+  assert.deepEqual([s.pick, s.weapon], [2, 2]);
+  win.fire('keyup', { code: 'Digit2' });
+  win.fire('keydown', { code: 'Digit3' });
+  s = input.sample();
+  assert.deepEqual([s.pick, s.weapon], [3, 0]);
+  assert.equal(input.sample().pick, 0, 'a press counts once');
+  win.fire('keyup', { code: 'Digit3' });
+  win.fire('keydown', { code: 'Digit1' });
+  input.releaseAll(); // a pause between the press and the next update forgets it
+  assert.equal(input.sample().pick, 0);
+});
+
 test('the wheel steps weapons, once per fling', () => {
   const { win, input } = setup();
   win.fire('wheel', { deltaY: 5, timeStamp: 1000 });
