@@ -147,6 +147,7 @@ async function boot() {
   const start = () => {
     game.newNight();
     input.facing = game.state.player.facing;
+    input.pitch = 0;
     input.releaseAll();
     bot = createBot();
     clock.reset();
@@ -193,7 +194,7 @@ async function boot() {
   let time = 0, last = null;
   const perf = { frameMs: 0, updates: 0 };
   if (anyDebug) window.__lastlightPerf = perf;
-  const frameView = { facing: 0, alpha: 0, time: 0, dt: 0, reducedMotion: false, h: 0, focal: 0 };
+  const frameView = { facing: 0, pitch: 0, alpha: 0, time: 0, dt: 0, reducedMotion: false, h: 0, focal: 0 };
   const hudInfo = { time: 0, hitT: 0, banner: game.banner, reducedMotion: false };
   const screenInfo = { time: 0, best: game.best, reached: 0, kills: 0 };
   const loop = (now) => {
@@ -230,6 +231,7 @@ async function boot() {
     const facing = !game.state ? Math.PI / 2 + Math.sin(time * 0.07) * 0.8 : debug.bot ? bot.facing : input.facing;
     const alpha = game.running ? clock.alpha : 1;
     frameView.facing = facing;
+    frameView.pitch = !game.state ? 0 : debug.bot ? bot.pitch : input.pitch;
     frameView.alpha = alpha;
     frameView.time = time;
     frameView.dt = dt;

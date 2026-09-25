@@ -1,17 +1,18 @@
-// ?debug=bot: the game plays itself, for testing whole nights. It turns (at a human-ish rate) towards
-// the nearest creature it can see and fires once on target, backs off from anything close, takes the
+// ?debug=bot: the game plays itself, for testing whole nights. It turns and looks up or down (at a
+// human-ish rate) towards the nearest creature it can see and fires once on target, backs off from anything close, takes the
 // shotgun to close quarters, throws a flare into a crowd, reloads in quiet moments, and in a lull goes
 // for supplies and then warms up at the stove. It produces the same intents as the keyboard and mouse.
 import { canSee } from './raycast.js';
 import { KINDS, MOTHER } from './creatures.js';
 import { SHOTGUN_ID, RIFLE_ID } from './weapons.js';
-import { CREATURES as TUNED } from './tuning.js';
+import { CREATURES as TUNED, PLAYER, VIEW } from './tuning.js';
 
 const TURN = 7; // radians per second
 const HIT_R = KINDS.map((k) => TUNED[k].hit);
+const HEIGHT = KINDS.map((k) => TUNED[k].height);
 
 export function createBot() {
-  return { facing: null, out: { facing: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0 } };
+  return { facing: null, pitch: 0, out: { facing: 0, pitch: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0 } };
 }
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -54,11 +55,14 @@ export function botIntents(state, bot, dt) {
     best = motherD;
   }
 
-  let want = bot.facing;
+  let want = bot.facing, wantPitch = 0;
   if (target) {
     want = Math.atan2(target.y - p.y, target.x - p.x);
+    const low = target.lift, high = target.lift + HEIGHT[target.kind];
+    wantPitch = Math.atan2((low + high) / 2 - PLAYER.eye, best);
     const err = Math.abs(wrap(want - bot.facing));
-    out.fire = err < Math.asin(Math.min(1, (HIT_R[target.kind] * 0.8) / Math.max(best, 0.01)));
+    const z = PLAYER.eye + best * Math.tan(bot.pitch); // where the crosshair is as it passes the target
+    out.fire = err < Math.asin(Math.min(1, (HIT_R[target.kind] * 0.8) / Math.max(best, 0.01))) && z >= low && z <= high;
     const close = best < 3;
     out.weapon = close && g.hasShotgun && g.shells + g.spare > 0 ? 2 : !close || !g.hasShotgun ? 1 : 0;
     if (crowd >= 4 && g.flares > 0 && err < 0.3) out.flare = 1;
@@ -101,6 +105,9 @@ export function botIntents(state, bot, dt) {
   }
   const turn = wrap(want - bot.facing);
   bot.facing = wrap(bot.facing + Math.max(-TURN * dt, Math.min(TURN * dt, turn)));
+  wantPitch = Math.max(-VIEW.maxPitch, Math.min(VIEW.maxPitch, wantPitch));
+  bot.pitch += Math.max(-TURN * dt, Math.min(TURN * dt, wantPitch - bot.pitch));
   out.facing = bot.facing;
+  out.pitch = bot.pitch;
   return out;
 }

@@ -3,6 +3,8 @@
 **Date:** 2026-09-24
 **Status:** Approved by Nathan (2026-09-24). The plan is `docs/superpowers/plans/2026-09-24-last-light.md`; its "Refinements to the spec" section records what was decided while planning (from a working prototype).
 
+**Note (2026-09-25):** After playing it, Nathan asked for looking up and down. Aiming is no longer Doom's left-and-right only: the mouse looks up and down too, and shots go where the crosshair is. The sections below say so.
+
 **Note (2026-09-24):** Nathan named the creatures **the after-eaters**, after the German folklore word *Nachzehrer* ("after-eater"). This knowingly loosens this spec's "no real culture's beliefs or history" rule for one public-domain folklore word; nothing is taken from the book itself.
 
 A first-person wave-survival shooter for the games site (`natanforestree.github.io/games/`). You hold a cabin in a snowy clearing through one winter night, from dusk to dawn, against pale hungry things that come out of the trees. It's pixel art, drawn by a Wolfenstein-style raycaster, and it has to feel **super smooth**: that's Nathan's first requirement, and it shapes the engine.
@@ -66,8 +68,10 @@ The mood takes after horror Nathan loves (a patient, hungry thing in a frontier 
 
 - **The lantern.** You carry it in your left hand, and it lights a circle around you. Beyond that you see shapes, then only eyes.
 - **Health.** You have 100 health. It only comes back at the stove, and only during a lull.
-- **Movement.** You can walk and run. There's no jumping and no looking up or down.
-- **Aiming.** Aiming is left and right only, as in Doom. A shot hits whatever is under the crosshair's column.
+- **Movement.** You can walk and run. There's no jumping.
+- **Aiming.** The mouse turns you and looks up and down, about 26° each way. The view shears rather than tilts, as in Duke Nukem 3D: the horizon moves and walls stay upright.
+  - A shot hits a creature it passes within the creature's width across and between its feet and its top, give or take about 3°.
+  - Aiming level hits a crawler from 3 cells off; closer, you look down at it.
 
 ### Weapons
 
@@ -119,7 +123,7 @@ All of them come out of the trails and follow you around the cabin and props ins
   - Frames are drawn on `requestAnimationFrame`, at whatever rate the screen runs. Each frame blends positions between the last two updates.
   - A long gap (a hidden tab, or the machine sleeping) never turns into a burst of catch-up updates.
 - **Turning never waits.**
-  - Mouse movement changes your facing the moment the event arrives. The next frame draws with that facing, and the next update uses it.
+  - Mouse movement changes your facing and pitch the moment the event arrives. The next frame draws with them, and the next update uses them.
   - Pointer lock asks for raw input (`unadjustedMovement`) and falls back to normal pointer lock where it isn't supported.
   - The canvas asks for a low-latency context where supported.
 - **Movement.**
@@ -327,7 +331,8 @@ Distances are in grid cells, times in seconds.
 | Update rate | 120 Hz |
 | Player radius / walk / run | 0.25 / 3.0 / 4.8 cells/s |
 | Time to full speed / to stop | 0.1 / 0.08 s |
-| Mouse sensitivity | 0.0025 rad per count, slider 0.25×–4× |
+| Mouse sensitivity | 0.0025 rad per count, both ways, slider 0.25×–4× |
+| Looking up and down | 0.45 rad (about 26°) each way; shots forgive 0.05 per cell away (about 3°) |
 | Lantern light | full to 3 cells, dark by 7; eyes visible to 16 |
 | Player health | 100 |
 | Rifle | 10 damage, 8 rounds, 0.45 s between shots, 0.4 s per round reloaded |
@@ -357,7 +362,7 @@ Distances are in grid cells, times in seconds.
 
 ## Out of scope
 
-- Phones and touch controls, gamepads, looking up or down, jumping.
+- Phones and touch controls, gamepads, jumping.
 - Multiple maps, difficulty settings, and saving partway through a night.
 - Multiplayer, story and cutscenes.
 - Settings beyond mouse sensitivity, volume and mute.

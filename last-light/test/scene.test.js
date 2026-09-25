@@ -20,6 +20,14 @@ test('the camera blends between the last two updates', () => {
   assert.equal(f.x, 10.25);
 });
 
+test('the view looks up and down with the mouse, at once', () => {
+  const art = fakeArt();
+  const scene = createScene(art);
+  const s = quietState();
+  assert.equal(buildFrame(scene, s, createLightmap(s.map), view()).pitch, 0);
+  assert.equal(buildFrame(scene, s, createLightmap(s.map), view({ pitch: -0.3 })).pitch, -0.3);
+});
+
 test('every creature, prop, active pickup and burning flare becomes a sprite', () => {
   const art = fakeArt();
   const scene = createScene(art);

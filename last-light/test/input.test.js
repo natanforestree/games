@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createInput } from '../src/input.js';
-import { MOUSE } from '../src/tuning.js';
+import { MOUSE, VIEW } from '../src/tuning.js';
 
 // A stand-in for window and document: dispatches events to listeners.
 function fakeTarget() {
@@ -52,10 +52,32 @@ test('the mouse turns you at once, scaled by sensitivity, while the pointer is l
   assert.ok(Math.abs(input.facing) < 1e-12, 'unlocked: no turning');
 });
 
+test('moving the mouse up looks up and down looks down, at once, as far as VIEW.maxPitch either way', () => {
+  const { win, doc, input } = setup();
+  win.fire('mousemove', { movementY: -40 });
+  assert.ok(Math.abs(input.pitch - 40 * MOUSE.sensitivity) < 1e-12, `up is positive: ${input.pitch}`);
+  input.sensitivity = 2;
+  win.fire('mousemove', { movementY: 40 });
+  assert.ok(Math.abs(input.pitch + 40 * MOUSE.sensitivity) < 1e-12, 'the sensitivity scales it too');
+  assert.equal(input.sample().pitch, input.pitch);
+  for (let i = 0; i < 20; i++) win.fire('mousemove', { movementY: -100 });
+  assert.equal(input.pitch, VIEW.maxPitch);
+  for (let i = 0; i < 40; i++) win.fire('mousemove', { movementY: 100 });
+  assert.equal(input.pitch, -VIEW.maxPitch);
+  assert.equal(input.facing, 0, 'looking up and down never turns you');
+  doc.pointerLockElement = null;
+  doc.fire('pointerlockchange');
+  win.fire('mousemove', { movementY: -100 });
+  assert.equal(input.pitch, -VIEW.maxPitch, 'unlocked: no looking');
+});
+
 test('a single huge mouse jump is a browser glitch and is ignored', () => {
   const { win, input } = setup();
   win.fire('mousemove', { movementX: MOUSE.spike + 1 });
   assert.equal(input.facing, 0);
+  const other = setup(); // judged from stillness, not from the jump above
+  other.win.fire('mousemove', { movementX: 3, movementY: -(MOUSE.spike + 1) });
+  assert.deepEqual([other.input.facing, other.input.pitch], [0, 0], 'a jump up or down is dropped too, sideways and all');
 });
 
 test('a fast flick that ramps up is a hand, not a glitch: every event of it turns you', () => {

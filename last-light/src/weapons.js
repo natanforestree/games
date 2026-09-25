@@ -1,11 +1,11 @@
-// Your guns and flares. Shots are instant (hitscan): a ray from you along your facing, stopped by the
-// first wall, hits the nearest creature it passes through. Aiming is left and right only, as in Doom,
-// so a creature is hit if the ray passes within its `hit` width.
+// Your guns and flares. Shots are instant (hitscan): a ray from your eyes along your facing and pitch,
+// stopped by the first wall, hits the nearest creature it passes through: within its `hit` width
+// across, and between its feet and its top as it passes, give or take AIM.forgive.
 //
 // The rifle holds 8 and reloads a round at a time; firing interrupts a reload, and an empty rifle
 // starts reloading by itself. The shotgun fires 8 pellets in a spread from 2 barrels, and reloads both
 // at once from limited spare shells. Holding the trigger keeps firing as fast as each gun allows.
-import { RIFLE, SHOTGUN, SWITCH_TIME, FLARE, FEEL, CREATURES, LIGHT } from './tuning.js';
+import { RIFLE, SHOTGUN, SWITCH_TIME, FLARE, FEEL, CREATURES, LIGHT, PLAYER, AIM } from './tuning.js';
 import { castRay, createHit } from './raycast.js';
 import { damageCreature, KINDS } from './creatures.js';
 import { randomBetween } from './rng.js';
@@ -13,6 +13,7 @@ import { emit } from './events.js';
 
 export const RIFLE_ID = 0, SHOTGUN_ID = 1;
 const HIT_R = KINDS.map((k) => CREATURES[k].hit);
+const HEIGHT = KINDS.map((k) => CREATURES[k].height);
 export const MAX_FLARES = 8; // burning on the ground at once
 
 export function createGun() {
@@ -34,10 +35,11 @@ export function createFlares() {
 const wallHit = createHit();
 const shot = { creature: null, dist: 0 };
 
-// The nearest creature along a ray from (ox, oy) at `angle`, before any wall and within `range`.
-// Returns the reusable `shot` ({ creature, dist }), with creature null for a miss.
-export function traceShot(state, ox, oy, angle, range) {
-  const dx = Math.cos(angle), dy = Math.sin(angle);
+// The nearest creature along a ray from your eyes at (ox, oy), at `angle` and `pitch` (up is positive),
+// before any wall and within `range`. Returns the reusable `shot` ({ creature, dist }), with creature
+// null for a miss.
+export function traceShot(state, ox, oy, angle, range, pitch = 0) {
+  const dx = Math.cos(angle), dy = Math.sin(angle), rise = Math.tan(pitch);
   const wall = castRay(state.map, ox, oy, dx, dy, wallHit, range) ? wallHit.dist : range;
   shot.creature = null;
   shot.dist = wall;
@@ -47,10 +49,11 @@ export function traceShot(state, ox, oy, angle, range) {
     const along = rx * dx + ry * dy;
     if (along <= 0 || along >= shot.dist) continue;
     const across = Math.abs(rx * dy - ry * dx);
-    if (across <= HIT_R[c.kind]) {
-      shot.creature = c;
-      shot.dist = along;
-    }
+    if (across > HIT_R[c.kind]) continue;
+    const z = PLAYER.eye + along * rise, give = along * AIM.forgive;
+    if (z < c.lift - give || z > c.lift + HEIGHT[c.kind] + give) continue;
+    shot.creature = c;
+    shot.dist = along;
   }
   return shot;
 }
@@ -90,7 +93,7 @@ function fire(state) {
     g.reloading = false;
     g.rifle--;
     g.cooldown = RIFLE.interval;
-    const s = traceShot(state, p.x, p.y, p.facing, RIFLE.range);
+    const s = traceShot(state, p.x, p.y, p.facing, RIFLE.range, p.pitch);
     if (s.creature) damageCreature(state, s.creature, RIFLE.damage);
     g.kick += FEEL.kick.rifle;
     emit(state, 'shot', p.x, p.y, RIFLE_ID);
@@ -110,7 +113,7 @@ function fire(state) {
     for (let i = 0; i < n; i++) {
       const spread = SHOTGUN.spread * (((i + 0.5) / n) * 2 - 1);
       const jitter = randomBetween(state.rng, -0.3, 0.3) * (SHOTGUN.spread / n);
-      const s = traceShot(state, p.x, p.y, p.facing + spread + jitter, SHOTGUN.range);
+      const s = traceShot(state, p.x, p.y, p.facing + spread + jitter, SHOTGUN.range, p.pitch);
       if (s.creature) damageCreature(state, s.creature, s.dist > SHOTGUN.falloff ? SHOTGUN.damage / 2 : SHOTGUN.damage);
     }
     g.kick += FEEL.kick.shotgun;

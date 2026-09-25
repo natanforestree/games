@@ -1,10 +1,10 @@
-// Keyboard and mouse. The mouse turns you the moment its event arrives (input owns your facing), so
-// turning never waits for an update. Pointer lock asks for raw, unaccelerated input where the browser
+// Keyboard and mouse. The mouse turns you, and looks up and down, the moment its event arrives (input
+// owns your facing and pitch), so looking never waits for an update. Pointer lock asks for raw, unaccelerated input where the browser
 // has it. Everything else is sampled once per update into a reused intents object: held keys as held,
 // and presses (reload, flare, weapon keys, the wheel) latched so a tap shorter than an update still
 // counts exactly once. OS key auto-repeat is ignored, losing focus releases everything, and a held
 // Cmd/Ctrl is left to the browser.
-import { KEYS, MOUSE } from './tuning.js';
+import { KEYS, MOUSE, VIEW } from './tuning.js';
 
 const isMeta = (code) => code === 'MetaLeft' || code === 'MetaRight';
 
@@ -19,12 +19,13 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   for (const [action, codes] of Object.entries(bindings)) for (const code of codes) actionOf.set(code, action);
   const down = new Set();
   const pressed = { reload: 0, flare: 0, rifle: 0, shotgun: 0, mute: 0, wheel: 0 };
-  let fireHeld = false, fireTapped = false, lastWheel = -Infinity, lastDx = 0;
-  const out = { facing: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0 };
+  let fireHeld = false, fireTapped = false, lastWheel = -Infinity, lastMove = 0;
+  const out = { facing: 0, pitch: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0 };
   const ui = { mute: 0 };
 
   const input = {
     facing: 0,
+    pitch: 0, // up is positive, within VIEW.maxPitch either way
     sensitivity: 1, // multiplier on MOUSE.sensitivity, from the pause menu's slider
     locked: false, // pointer lock held
     element: null, // the canvas that takes the pointer lock
@@ -58,6 +59,7 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
     // Fills and returns the intents for one update.
     sample() {
       out.facing = input.facing;
+      out.pitch = input.pitch;
       out.forward = (anyDown(down, bindings.forward) ? 1 : 0) - (anyDown(down, bindings.back) ? 1 : 0);
       out.strafe = (anyDown(down, bindings.right) ? 1 : 0) - (anyDown(down, bindings.left) ? 1 : 0);
       out.run = anyDown(down, bindings.run);
@@ -92,12 +94,17 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   target.addEventListener('keyup', (e) => (isMeta(e.code) ? input.releaseAll() : down.delete(e.code)));
   target.addEventListener('mousemove', (e) => {
     if (!input.locked) return;
-    const dx = e.movementX || 0, size = Math.abs(dx), before = lastDx;
-    lastDx = size;
+    const dx = e.movementX || 0, dy = e.movementY || 0;
+    const size = Math.max(Math.abs(dx), Math.abs(dy)), before = lastMove;
+    lastMove = size;
     if (size > MOUSE.spike && size > MOUSE.jump * before + MOUSE.floor) return; // a browser glitch, not a hand
-    input.facing += dx * MOUSE.sensitivity * input.sensitivity;
+    const turn = MOUSE.sensitivity * input.sensitivity;
+    input.facing += dx * turn;
     if (input.facing > Math.PI) input.facing -= 2 * Math.PI;
     else if (input.facing < -Math.PI) input.facing += 2 * Math.PI;
+    input.pitch -= dy * turn; // pushing the mouse away looks up
+    if (input.pitch > VIEW.maxPitch) input.pitch = VIEW.maxPitch;
+    else if (input.pitch < -VIEW.maxPitch) input.pitch = -VIEW.maxPitch;
   });
   target.addEventListener('mousedown', (e) => {
     if (!input.locked) return; // clicks on the page (start, resume) are main.js's
@@ -130,7 +137,7 @@ export function createInput(target = globalThis, doc = globalThis.document, bind
   doc?.addEventListener('pointerlockchange', () => {
     input.locked = !!doc.pointerLockElement && doc.pointerLockElement === input.element;
     input.releaseAll(); // gained or lost: nothing pressed before the change carries across it
-    lastDx = 0; // nor does a flick: a new lock's first event is judged from stillness
+    lastMove = 0; // nor does a flick: a new lock's first event is judged from stillness
   });
   return input;
 }

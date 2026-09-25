@@ -1,5 +1,5 @@
 // Turns the game state into what the renderer draws this frame: the camera (blended between the last
-// two updates, with the head bob and the gun's kick), the lights, and every sprite with its animation
+// two updates, looking where the mouse says, with the head bob and the gun's kick), the lights, and every sprite with its animation
 // frame. Allocates nothing per frame: the sprite list is a fixed pool.
 //
 // art.sprites[name] = { height, stride?, ms?, frames: [{ w, h, px }], anims: { name: [frame indices] } },
@@ -37,7 +37,7 @@ export function createScene(art) {
   const sprites = Array.from({ length: MAX_SPRITES }, () => ({ x: 0, y: 0, height: 1, lift: 0, frame: null, flip: false, glow: 15 }));
   return {
     art, sprites,
-    frame: { x: 0, y: 0, facing: 0, bob: 0, map: null, lightmap: null, skyLevel: 0, time: 0, sprites, spriteCount: 0, snow: true, drops: null },
+    frame: { x: 0, y: 0, facing: 0, pitch: 0, bob: 0, map: null, lightmap: null, skyLevel: 0, time: 0, sprites, spriteCount: 0, snow: true, drops: null },
     shakeX: 0, shakeY: 0, count: 0,
     fx: createEffects(),
   };
@@ -104,7 +104,7 @@ function put(scene, sx, sy, spr, frame, lift, flip, glow) {
 
 const shown = { frame: null, flip: false };
 
-// view: { facing (from input), alpha (clock blend), time (seconds), dt (seconds since the last frame),
+// view: { facing and pitch (from input), alpha (clock blend), time (seconds), dt (seconds since the last frame),
 //        reducedMotion, h (view height), focal }
 export function buildFrame(scene, state, lightmap, view) {
   const { art } = scene;
@@ -113,6 +113,7 @@ export function buildFrame(scene, state, lightmap, view) {
   f.x = x;
   f.y = y;
   f.facing = view.facing;
+  f.pitch = view.pitch || 0;
   f.map = state.map;
   f.lightmap = lightmap;
   f.time = t;

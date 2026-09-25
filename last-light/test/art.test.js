@@ -8,6 +8,7 @@ import { WALLS } from '../src/map.js';
 import { FLOORS, COLOR_SLACK } from '../src/assets.js';
 import { SPRITE_ANIMS, SPRAY_Z } from '../src/scene.js';
 import { KINDS } from '../src/creatures.js';
+import { CREATURES } from '../src/tuning.js';
 import { HAND_FRAMES, HUD_ICONS } from '../src/hud.js';
 
 const file = (f) => new URL(`../${f}`, import.meta.url);
@@ -82,6 +83,11 @@ test('creature sizes: a crawler about knee-high, a gaunt a little taller than yo
   assert.ok(sprites.mother.height >= 2, `mother ${sprites.mother.height}`);
   const order = ['crawler', 'leaper', 'gaunt', 'mother'].map((k) => sprites[k].height);
   assert.deepEqual(order, [...order].sort((a, b) => a - b), 'crawler < leaper < gaunt < mother');
+});
+
+test('a shot sees each creature as tall as it is drawn', () => {
+  const { sprites } = json('sprites.json');
+  for (const k of KINDS) assert.equal(CREATURES[k].height, sprites[k].height, k);
 });
 
 // A hit's spray comes out of the body: above the legs, below the eyes.

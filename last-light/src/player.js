@@ -10,16 +10,17 @@ const DECEL = PLAYER.run / PLAYER.stopTime;
 export function createPlayer(start) {
   return {
     x: start.x, y: start.y, px: start.x, py: start.y,
-    vx: 0, vy: 0, radius: PLAYER.radius, facing: start.facing,
+    vx: 0, vy: 0, radius: PLAYER.radius, facing: start.facing, pitch: 0,
     health: PLAYER.health, walked: 0, running: false,
   };
 }
 
-// intents: { facing, forward (-1..1), strafe (-1..1, positive is right), run }
+// intents: { facing, pitch (up is positive), forward (-1..1), strafe (-1..1, positive is right), run }
 export function movePlayer(map, p, intents, dt) {
   p.px = p.x;
   p.py = p.y;
   p.facing = intents.facing;
+  p.pitch = intents.pitch;
   const c = Math.cos(p.facing), s = Math.sin(p.facing);
   let wx = intents.forward * c - intents.strafe * s;
   let wy = intents.forward * s + intents.strafe * c;

@@ -7,6 +7,7 @@ import { createLightmap, beginLight, addLight } from '../src/lightmap.js';
 import { room } from './helpers.js';
 import { testArt, drawnAt, IDX } from './render-helpers.js';
 import { buildMips } from '../src/assets.js';
+import { VIEW } from '../src/tuning.js';
 
 const view = chooseView(480, 270, 1);
 
@@ -31,6 +32,27 @@ test('facing a wall 4.5 cells away: wall at the horizon, sky above it, snow belo
   assert.equal(at(x, Math.floor(h / 2 - half) - 2), IDX.sky);
   assert.equal(at(x, Math.ceil(h / 2 + half) + 2), IDX.snow);
   assert.equal(at(x, Math.floor(h / 2 - half) + 2), IDX.trunks);
+});
+
+test('looking up lowers the horizon by tan(pitch) x focal and looking down raises it; walls stay upright', () => {
+  const { art, r, frame } = setup(room());
+  const { w, h, focal } = view;
+  const at = (x, y) => drawnAt(art, r.buffer, w, x, y);
+  const half = focal / 4.5 / 2;
+  for (const pitch of [0.3, -0.3]) {
+    r.draw(frame({ pitch }));
+    const mid = Math.round(h / 2 + Math.tan(pitch) * focal);
+    for (const x of [2, w / 2, w - 3]) assert.equal(at(x, mid), IDX.trunks, `the horizon, across the view: pitch ${pitch}, x ${x}`);
+    assert.equal(at(w / 2, Math.floor(mid - half) - 2), IDX.sky);
+    assert.equal(at(w / 2, Math.floor(mid - half) + 2), IDX.trunks);
+    assert.equal(at(w / 2, Math.ceil(mid + half) + 2), IDX.snow);
+  }
+});
+
+test('looking as far up as you can, the sky fills the top of the view, past the top of the panorama', () => {
+  const { art, r, frame } = setup(room());
+  r.draw(frame({ pitch: VIEW.maxPitch }));
+  for (let y = 0; y < 10; y++) assert.equal(drawnAt(art, r.buffer, view.w, view.w / 2, y), IDX.sky);
 });
 
 test('a sprite in front of the wall is drawn; one behind the wall is hidden', () => {
@@ -105,6 +127,8 @@ test('inside the cabin you see rafters overhead, not sky', () => {
   r.draw(frame({ x: 19.5, y: 16.5, facing: Math.PI / 2 }));
   assert.equal(drawnAt(art, r.buffer, view.w, view.w / 2, 0), IDX.rafters);
   assert.equal(drawnAt(art, r.buffer, view.w, view.w / 2, view.h - 1), IDX.planks);
+  r.draw(frame({ x: 19.5, y: 16.5, facing: Math.PI / 2, pitch: VIEW.maxPitch }));
+  assert.equal(drawnAt(art, r.buffer, view.w, view.w / 2, view.h / 2 + 5), IDX.rafters, 'looking up, the rafters come down the view');
 });
 
 test('falling snow shows outside, never under the roof', () => {

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { traceShot, RIFLE_ID, SHOTGUN_ID, giveShotgun } from '../src/weapons.js';
-import { spawnCreature, CRAWLER, GAUNT } from '../src/creatures.js';
-import { RIFLE, SHOTGUN, FLARE, SWITCH_TIME, CREATURES, DT } from '../src/tuning.js';
+import { spawnCreature, CRAWLER, GAUNT, LEAPER, MOTHER } from '../src/creatures.js';
+import { RIFLE, SHOTGUN, FLARE, SWITCH_TIME, CREATURES, DT, PLAYER, VIEW, AIM } from '../src/tuning.js';
 import { quietState, run, runCollecting, intents } from './helpers.js';
 
 const south = Math.PI / 2;
@@ -18,6 +18,60 @@ test('the shot hits the nearest creature on the line, and walls stop it', () => 
   const behind = spawnCreature(s, CRAWLER, 19.5, 12.5); // behind the cabin's back wall
   assert.equal(traceShot(s, 19.5, 20.5, -Math.PI / 2, 40).creature, null);
   assert.ok(behind.alive);
+});
+
+// The pitch that puts the crosshair on height z at distance d.
+const lookAt = (z, d) => Math.atan2(z - PLAYER.eye, d);
+
+test('a shot goes where you look: level, it passes over a crawler close by; looking down at it hits', () => {
+  const s = quietState(); // you're at (19.5, 20.5)
+  const c = spawnCreature(s, CRAWLER, 19.5, 21.5);
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, 0).creature, null, 'over its back');
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(CREATURES.crawler.height / 2, 1)).creature, c);
+  c.y = 22.5;
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, -VIEW.maxPitch).creature, null, '2 cells off, all the way down goes into the snow before it');
+  c.y = 26.5; // 6 cells off it's small enough that level is near enough
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, 0).creature, c);
+});
+
+test('a shot a little above or below a creature still hits it, AIM.forgive per cell away; further off it misses', () => {
+  const s = quietState();
+  const g = spawnCreature(s, GAUNT, 19.5, 25.5); // 5 cells south
+  const top = CREATURES.gaunt.height, give = 5 * AIM.forgive;
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(top + give * 0.9, 5)).creature, g);
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(top + give * 1.1, 5)).creature, null);
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(-give * 0.9, 5)).creature, g);
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(-give * 1.1, 5)).creature, null);
+});
+
+test('a leaper in the air is hit where it is, not where it took off; the Mother is hit high up', () => {
+  const s = quietState();
+  const m = spawnCreature(s, MOTHER, 19.5, 24.5);
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(2, 4)).creature, m, 'her head, looking up');
+  m.alive = false;
+  const l = spawnCreature(s, LEAPER, 19.5, 22.5);
+  l.lift = 0.35; // the top of a leap
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(0.05, 2)).creature, null, 'under it');
+  assert.equal(traceShot(s, 19.5, 20.5, south, 40, lookAt(0.9, 2)).creature, l);
+});
+
+test('the rifle and the shotgun both fire where you look', () => {
+  const s = quietState();
+  const c = spawnCreature(s, CRAWLER, 19.5, 21.5);
+  run(s, DT, intents({ facing: south, fire: true }));
+  assert.ok(c.alive && !c.dying, 'level, the rifle misses it');
+  s.gun.cooldown = 0; // fire again at once, before it moves
+  run(s, DT, intents({ facing: south, pitch: lookAt(0.2, 1), fire: true }));
+  assert.ok(c.dying > 0, 'looking down, it hits');
+  const t = quietState();
+  giveShotgun(t);
+  run(t, SWITCH_TIME + DT);
+  const d = spawnCreature(t, CRAWLER, 19.5, 21.5);
+  run(t, DT, intents({ facing: south, fire: true }));
+  assert.ok(d.alive && !d.dying, 'level, every pellet misses it');
+  t.gun.cooldown = 0;
+  run(t, DT, intents({ facing: south, pitch: lookAt(0.2, 1), fire: true }));
+  assert.ok(d.dying > 0, 'looking down, the pellets hit');
 });
 
 test('holding fire shoots the rifle at its lever rate, 8 rounds, then it reloads by itself', () => {

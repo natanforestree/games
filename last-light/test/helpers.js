@@ -27,7 +27,7 @@ export const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 
 // Intents for one update, all idle; override what a test needs.
 export function intents(over = {}) {
-  return { facing: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0, ...over };
+  return { facing: 0, pitch: 0, forward: 0, strafe: 0, run: false, fire: false, flare: 0, reload: 0, weapon: 0, weaponStep: 0, ...over };
 }
 
 // A night on the real map, held in its dusk so nothing spawns unless a test starts it. You're on the

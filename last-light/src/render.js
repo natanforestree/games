@@ -6,7 +6,8 @@
 //   shades   { table, fade, emissive } from shade.js
 //   walls    { name: Uint8Array(32 * 32) }, column-major (index x * 32 + y), palette indices
 //   floors   { snow, planks, rafters: Uint8Array(32 * 32) }, row-major
-//   sky      { w, h, px: Uint8Array }, row-major; a panorama whose bottom row sits on the horizon
+//   sky      { w, h, px: Uint8Array }, row-major; a panorama whose bottom row sits on the horizon, and
+//            whose top row carries on above it
 //   flake    the palette index falling snow is drawn in
 //   ichor    the palette index of the spray when a creature is hit
 import { castRay, createHit } from './raycast.js';
@@ -89,7 +90,9 @@ export function createRenderer(art, map) {
       dirX = Math.cos(f.facing);
       dirY = Math.sin(f.facing);
       const rightX = -dirY * plane, rightY = dirX * plane;
-      hz = Math.round(h / 2 + (f.bob || 0));
+      // Looking up or down shears the view, as Duke Nukem 3D did: the horizon moves by tan(pitch) x
+      // focal, so the crosshair at the centre stays on the line a shot takes, and walls stay upright.
+      hz = Math.round(h / 2 + (f.bob || 0) + Math.tan(f.pitch || 0) * focal);
       const skyRow = (f.skyLevel | 0) << 8;
 
       // Walls, one column at a time.
@@ -158,7 +161,16 @@ export function createRenderer(art, map) {
               continue;
             }
             const idx = rafters[(((wy - my) * TEX) | 0) * TEX + (((wx - mx) * TEX) | 0)];
-            let l = (lightAt(lm, wx, wy) * TOP + BAYER[bay | (x & 3)]) | 0;
+            // lightAt, inlined as for the floor below: looking up in the cabin, rafters fill the view.
+            let fx = wx * RES - 0.5, fy = wy * RES - 0.5;
+            if (fx < 0) fx = 0;
+            else if (fx > lmMaxX) fx = lmMaxX;
+            if (fy < 0) fy = 0;
+            else if (fy > lmMaxY) fy = lmMaxY;
+            const ix = fx | 0, iy = fy | 0, tx = fx - ix, i = iy * lmw + ix;
+            const t0 = cur[i] + (cur[i + 1] - cur[i]) * tx;
+            const t1 = cur[i + lmw] + (cur[i + lmw + 1] - cur[i + lmw]) * tx;
+            let l = ((amb + t0 + (t1 - t0) * (fy - iy)) * TOP + BAYER[bay | (x & 3)]) | 0;
             if (l > TOP) l = TOP;
             buf[o] = table[(l << 8) | idx];
           }

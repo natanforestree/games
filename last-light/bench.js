@@ -1,12 +1,13 @@
 // Times the renderer on a busy late-night frame at 480x270 in Node: 30 creatures, 3 flares, the
-// lantern, falling snow. `npm run bench`. The target is under 4 ms a frame. Not a test, because
-// timings vary from machine to machine.
+// lantern, falling snow; then the same looking all the way down (the most snow to draw), and inside
+// the cabin looking all the way up (the most rafters). `npm run bench`. The target is under 4 ms a
+// frame. Not a test, because timings vary from machine to machine.
 import { parseMap } from './src/map.js';
 import { chooseView } from './src/view.js';
 import { buildShades } from './src/shade.js';
 import { createLightmap, bakeStatic, beginLight, addLight } from './src/lightmap.js';
 import { createRenderer, TEX } from './src/render.js';
-import { LIGHT } from './src/tuning.js';
+import { LIGHT, VIEW } from './src/tuning.js';
 
 const map = parseMap();
 const colors = Array.from({ length: 48 }, (_, i) => `#${((i * 2654435761) >>> 8).toString(16).padStart(6, '0').slice(0, 6)}`);
@@ -33,7 +34,7 @@ for (let i = 0; i < 30; i++) {
   sprites.push({ x: 19.5 + Math.cos(Math.PI / 2 + a) * d, y: 22 + Math.sin(Math.PI / 2 + a) * d, height: 1, frame, flip: i % 2 === 0, glow: 15 });
 }
 const flares = [[17, 26], [22, 25], [20, 30]];
-const f = { x: 19.5, y: 21, facing: Math.PI / 2, bob: 0, map, lightmap: lm, skyLevel: 3, time: 0, sprites, spriteCount: sprites.length, snow: true };
+const f = { x: 19.5, y: 21, facing: Math.PI / 2, pitch: 0, bob: 0, map, lightmap: lm, skyLevel: 3, time: 0, sprites, spriteCount: sprites.length, snow: true };
 
 function one(t) {
   f.time = t;
@@ -43,9 +44,17 @@ function one(t) {
   for (const [x, y] of flares) addLight(lm, x, y, LIGHT.flare.full, LIGHT.flare.dark, LIGHT.flare.intensity);
   renderer.draw(f);
 }
-for (let i = 0; i < 100; i++) one(i / 60);
-const N = 600;
-const t0 = performance.now();
-for (let i = 0; i < N; i++) one(i / 60);
-const ms = (performance.now() - t0) / N;
-console.log(`${view.w}x${view.h}: ${ms.toFixed(2)} ms a frame (target under 4 ms)`);
+function time(label, x, y, pitch) {
+  f.x = x;
+  f.y = y;
+  f.pitch = pitch;
+  for (let i = 0; i < 100; i++) one(i / 60);
+  const N = 600;
+  const t0 = performance.now();
+  for (let i = 0; i < N; i++) one(i / 60);
+  const ms = (performance.now() - t0) / N;
+  console.log(`${view.w}x${view.h}, ${label}: ${ms.toFixed(2)} ms a frame (target under 4 ms)`);
+}
+time('on the porch', 19.5, 21, 0);
+time('looking down', 19.5, 21, -VIEW.maxPitch);
+time('in the cabin looking up', 19.5, 16.5, VIEW.maxPitch);

@@ -38,11 +38,13 @@ test('strafe right moves to your right: south, when facing east', () => {
   assert.ok(p.y > 5.5 && near(p.x, 5.5), `${p.x} ${p.y}`);
 });
 
-test('the last position is kept for blending, and the facing follows the intent', () => {
+test('the last position is kept for blending, and the facing and pitch follow the intent', () => {
   const map = room();
   const p = createPlayer({ x: 5.5, y: 5.5, facing: 0 });
-  movePlayer(map, p, intents({ forward: 1, facing: 1 }), DT);
+  assert.equal(p.pitch, 0);
+  movePlayer(map, p, intents({ forward: 1, facing: 1, pitch: -0.2 }), DT);
   assert.equal(p.px, 5.5);
   assert.equal(p.facing, 1);
+  assert.equal(p.pitch, -0.2);
   assert.ok(p.walked > 0);
 });

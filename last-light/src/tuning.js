@@ -10,6 +10,7 @@ export const PLAYER = {
   accelTime: 0.1, // from standing to full speed
   stopTime: 0.08, // from full speed to standing
   health: 100,
+  eye: 0.5, // your eyes' height; walls are 1 tall
 };
 
 export const VIEW = {
@@ -17,6 +18,9 @@ export const VIEW = {
   tanHalfV: 0.5625, // fixed vertical half-angle: 90 degrees across at 16:9
   maxAspect: 21 / 9,
   bobPixels: 1.5, // head bob height at walking speed, in internal pixels at 270 tall
+  // How far you can look up or down, radians (about 26 degrees). The view shears rather than tilts, as
+  // in Duke Nukem 3D: the horizon moves and walls stay upright, and much further the stretch would show.
+  maxPitch: 0.45,
 };
 
 export const MOUSE = {
@@ -57,23 +61,27 @@ export const SHOTGUN = {
   range: 20,
 };
 export const SWITCH_TIME = 0.25; // lowering one gun and raising the other
+// A shot this much (per cell away) above or below a creature still hits it: the tangent of about 3
+// degrees, so a crawler is hit aiming level from 3 cells off, but closer you have to look down at it.
+export const AIM = { forgive: 0.05 };
 export const FLARE = { start: 2, max: 5, throw: 6, burn: 10, radius: 4, slow: 0.5, damage: 1.5, cooldown: 0.5 };
 export const SHELL_BOX = 6;
 
 export const CREATURES = {
-  crawler: { radius: 0.22, hit: 0.3, health: 10, speed: 4.0, reach: 0.35, damage: 6, interval: 0.7, firstBite: 0.25, flinch: 0.12 },
-  gaunt: { radius: 0.3, hit: 0.32, health: 45, speed: 1.6, reach: 0.9, windup: 0.45, damage: 25, interval: 1.5, flinch: 0.06 },
+  crawler: { radius: 0.22, hit: 0.3, height: 0.35, health: 10, speed: 4.0, reach: 0.35, damage: 6, interval: 0.7, firstBite: 0.25, flinch: 0.12 },
+  gaunt: { radius: 0.3, hit: 0.32, height: 1.1, health: 45, speed: 1.6, reach: 0.9, windup: 0.45, damage: 25, interval: 1.5, flinch: 0.06 },
   leaper: {
-    radius: 0.25, hit: 0.3, health: 20, speed: 3.4, reach: 0.35, damage: 8, interval: 0.8, flinch: 0.12,
+    radius: 0.25, hit: 0.3, height: 0.7, health: 20, speed: 3.4, reach: 0.35, damage: 8, interval: 0.8, flinch: 0.12,
     circleAt: 5, circleSpeed: 3.0, circleMin: 2, circleMax: 4, crouch: 0.5, leapSpeed: 9, leapTime: 1.0,
     pounce: 20, land: 0.6, closeLeap: 2,
     lostSight: 0.5, // seconds out of sight before a circling leaper gives up and chases again
   },
   mother: {
-    radius: 0.45, hit: 0.7, health: 500, speed: 1.3, reach: 1.4, windup: 0.6, damage: 40, interval: 2, flinch: 0,
+    radius: 0.45, hit: 0.7, height: 2.2, health: 500, speed: 1.3, reach: 1.4, windup: 0.6, damage: 40, interval: 2, flinch: 0,
     birthEvery: 10, births: 2,
   },
-  // `hit` is how wide a creature is to a shot (its sprite), `radius` how wide it is to walls and others.
+  // `hit` and `height` are how wide and tall a creature is to a shot (its sprite, whose height is set in
+  // art/last-light/sprites.lua), `radius` how wide it is to walls and others.
   // Every radius stays under 0.5, so everything fits through the doorway and any one-cell gap.
   die: 0.6, // seconds the death animation plays
   sightRange: 10, // creatures head straight for you when they can see you this close; otherwise they path
