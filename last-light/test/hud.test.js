@@ -5,6 +5,7 @@ import { createGun, giveShotgun, RIFLE_ID, SHOTGUN_ID } from '../src/weapons.js'
 import { SWITCH_TIME, RIFLE, FLARE } from '../src/tuning.js';
 import { fakeArt, fakeContext, HANDS } from './fake-art.js';
 import { quietState } from './helpers.js';
+import { UPGRADE_LIST } from '../src/upgrades.js';
 
 test('the rifle: flash, idle, the lever working, reloading', () => {
   const g = createGun();
@@ -150,4 +151,90 @@ test('the death and dawn screens say "after-eater" singular for one, plural othe
   ctx = fakeContext();
   drawScreen(ctx, art, { w: 480, h: 270 }, 'dawn', { time: 0, best: { hour: 5, dawns: 0 }, reached: 8, kills: 1 });
   assert.ok(ctx.calls.texts.some((t) => t.str === 'You held the cabin.  1 after-eater fell.'));
+});
+
+// The HUD for state s, and what it drew: its texts, and the icons by name.
+function hudOf(s, over = {}) {
+  const art = fakeArt();
+  const ctx = fakeContext();
+  drawHud(ctx, art, s, { w: 480, h: 270 }, { time: 0, hitT: 9, banner: { t: 0 }, reducedMotion: false, ...over });
+  const byX = new Map(Object.entries(art.hud.icons).map(([n, r]) => [r[0], n]));
+  const icons = ctx.calls.images.filter((i) => i.img === art.hud.image).map((i) => byX.get(i.args[0]));
+  return { texts: ctx.calls.texts.map((t) => t.str), icons };
+}
+
+test('the embers you carry show beside your health, however many (?embers=999 too)', () => {
+  const s = quietState();
+  s.carried = 17;
+  const { texts, icons } = hudOf(s);
+  assert.ok(icons.includes('ember'));
+  assert.ok(texts.includes('17'));
+  s.carried = 999;
+  assert.ok(hudOf(s).texts.includes('999'));
+});
+
+test('at the fire: the offer as rows, each its key, icon, name and line; short of embers, how many more it wants', () => {
+  const s = quietState();
+  s.atFire = true;
+  s.carried = 4;
+  let { texts } = hudOf(s);
+  assert.ok(texts.includes('The fire wants 2 more embers'), texts.join('|'));
+  s.carried = 5;
+  assert.ok(hudOf(s).texts.includes('The fire wants 1 more ember'));
+  s.choosing = true;
+  s.offer.set([0, 6, 11]);
+  s.offerN = 3;
+  const d = hudOf(s);
+  texts = d.texts;
+  assert.ok(texts.includes('The fire shows you three'));
+  assert.ok(texts.includes('Costs 6 embers'));
+  for (const id of [0, 6, 11]) {
+    assert.ok(texts.includes(UPGRADE_LIST[id].name) && texts.includes(UPGRADE_LIST[id].line), UPGRADE_LIST[id].name);
+    assert.ok(d.icons.includes(`up-${UPGRADE_LIST[id].key}`));
+  }
+  assert.ok(['1', '2', '3'].every((k) => texts.includes(k)));
+  s.atFire = s.choosing = false;
+  assert.ok(!hudOf(s).texts.some((t) => t.startsWith('The fire')), 'nothing away from it');
+});
+
+test('Steady hands ready: the crosshair goes warm; a hit tick still wins', () => {
+  const s = quietState();
+  s.perks.steady = true;
+  s.player.stillT = 1;
+  assert.ok(hudOf(s).icons.includes('crosshairSteady'));
+  assert.ok(hudOf(s, { hitT: 0 }).icons.includes('hitTick'));
+  s.player.stillT = 0;
+  assert.ok(hudOf(s).icons.includes('crosshair'));
+});
+
+test('Deep magazine: the rifle row shows 12', () => {
+  const s = quietState();
+  s.gun.rounds = 12;
+  s.gun.rifle = 10;
+  const { icons } = hudOf(s);
+  assert.deepEqual([icons.filter((n) => n === 'round').length, icons.filter((n) => n === 'roundEmpty').length], [10, 2]);
+});
+
+test('Quick lever: the lever frames play within the quicker time between shots', () => {
+  const g = createGun();
+  g.interval = 0.3;
+  const seen = [];
+  for (let t = 0; t < 0.3; t += 0.01) {
+    g.shotT = t;
+    seen.push(gunFrame(g).name);
+  }
+  assert.ok(seen.includes('rifle-lever-1') && seen.includes('rifle-lever-2'));
+});
+
+test('the dawn and death screens show the upgrades you took, in order', () => {
+  for (const screen of ['dawn', 'dead']) {
+    const art = fakeArt();
+    const ctx = fakeContext();
+    const taken = new Int8Array(12).fill(-1);
+    taken.set([9, 1, 5]);
+    drawScreen(ctx, art, { w: 480, h: 270 }, screen, { time: 0, best: { hour: 0, dawns: 0 }, reached: 4, kills: 30, taken, bought: 3 });
+    const at = (n) => art.hud.icons[n][0];
+    const drawn = ctx.calls.images.filter((i) => i.img === art.hud.image).map((i) => i.args[0]);
+    assert.deepEqual(drawn, ['up-reach', 'up-quickLever', 'up-dragon'].map(at), screen);
+  }
 });

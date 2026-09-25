@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createScene, buildFrame, creatureFrame, sceneEvents } from '../src/scene.js';
-import { spawnCreature, CRAWLER, LEAPER, GAUNT } from '../src/creatures.js';
+import { spawnCreature, igniteCreature, CRAWLER, LEAPER, GAUNT } from '../src/creatures.js';
+import { dropEmber } from '../src/embers.js';
 import { createLightmap, lightAt } from '../src/lightmap.js';
 import { emit } from '../src/events.js';
-import { LIGHT } from '../src/tuning.js';
+import { LIGHT, EMBERS } from '../src/tuning.js';
 import { fakeArt } from './fake-art.js';
 import { quietState } from './helpers.js';
 
@@ -129,4 +130,59 @@ test('a hit throws a spray of droplets that fall to the snow', () => {
   assert.ok(live.every((d) => d.t > 0 && d.z === 0), 'landed, and still lying there');
   for (let i = 0; i < 30; i++) buildFrame(scene, s, createLightmap(s.map), view());
   assert.ok(live.every((d) => d.t <= 0), 'gone');
+});
+
+test('an ember on the snow is a glowing sprite, bigger for more value, that lights the ground; cooling, it dims', () => {
+  const art = fakeArt();
+  const scene = createScene(art);
+  const s = quietState();
+  const lm = createLightmap(s.map);
+  buildFrame(scene, s, lm, view());
+  const dark = lightAt(lm, 30.5, 26.5);
+  const e = dropEmber(s, 30.5, 26.5, 3);
+  let f = buildFrame(scene, s, lm, view());
+  const sprite = f.sprites.slice(0, f.spriteCount).find((x) => x.x === 30.5 && x.y === 26.5);
+  assert.ok(art.sprites.ember.frames.includes(sprite.frame));
+  assert.equal(sprite.glow, 15);
+  assert.ok(Math.abs(sprite.height - art.sprites.ember.height * 1.5) < 1e-9, 'a 3-ember is half as big again');
+  assert.ok(lightAt(lm, 30.5, 26.5) > dark + 0.2, 'it lights the snow');
+  e.t = EMBERS.flicker * 0.2;
+  let dimmest = 15;
+  for (let i = 0; i < 20; i++) {
+    f = buildFrame(scene, s, lm, view({ time: i * 0.037 }));
+    dimmest = Math.min(dimmest, f.sprites.slice(0, f.spriteCount).find((x) => x.x === 30.5).glow);
+  }
+  assert.ok(dimmest < 8, `cooling, it dims and flickers: ${dimmest}`);
+  e.t = 0;
+  f = buildFrame(scene, s, lm, view());
+  assert.ok(!f.sprites.slice(0, f.spriteCount).some((x) => x.x === 30.5), 'gone once it goes out');
+});
+
+test('Wide wick: the lantern lights further', () => {
+  const art = fakeArt();
+  const scene = createScene(art);
+  const s = quietState();
+  const lm = createLightmap(s.map);
+  buildFrame(scene, s, lm, view());
+  const before = lightAt(lm, s.player.x, s.player.y + 4);
+  s.perks.wick = true;
+  buildFrame(scene, s, lm, view());
+  assert.ok(lightAt(lm, s.player.x, s.player.y + 4) > before + 0.1);
+});
+
+test('a burning creature is lit by its fire, and throws sparks', () => {
+  const art = fakeArt();
+  const scene = createScene(art);
+  const s = quietState();
+  const lm = createLightmap(s.map);
+  const c = spawnCreature(s, GAUNT, 30.5, 26.5);
+  buildFrame(scene, s, lm, view());
+  const dark = lightAt(lm, 30.5, 26.5);
+  igniteCreature(s, c);
+  for (let i = 0; i < 10; i++) buildFrame(scene, s, lm, view({ dt: 1 / 60 }));
+  assert.ok(lightAt(lm, 30.5, 26.5) > dark + 0.2);
+  const f = buildFrame(scene, s, lm, view({ dt: 1 / 60 }));
+  const rising = f.sparks.filter((p) => p.t > 0);
+  assert.ok(rising.length >= 2, `${rising.length} sparks`);
+  assert.ok(rising.every((p) => Math.abs(p.x - 30.5) < 0.5 && p.z > 0));
 });

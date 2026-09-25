@@ -1,9 +1,10 @@
 // Everything drawn over the world with the canvas 2D context, at internal resolution: the guns and
-// lantern in your hands, the crosshair and hit tick, health, ammo, flares, the hour, the hurt glow,
-// banners, and the title, death and dawn screens. Text is Silkscreen.
+// lantern in your hands, the crosshair and hit tick, health, embers carried, ammo, flares, the hour,
+// the hurt glow, banners, the fire's offer, and the title, death and dawn screens. Text is Silkscreen.
 import { RIFLE, SHOTGUN, SWITCH_TIME, FLARE, FEEL, NIGHT } from './tuning.js';
-import { RIFLE_ID } from './weapons.js';
+import { RIFLE_ID, steadyReady } from './weapons.js';
 import { hourLabel } from './night.js';
+import { UPGRADE_LIST, UPGRADE_COUNT, upgradeCost } from './upgrades.js';
 
 // Every frame of the hands art, and every HUD icon, the HUD draws.
 export const HAND_FRAMES = [
@@ -11,7 +12,9 @@ export const HAND_FRAMES = [
   'shotgun-idle', 'shotgun-fire', 'shotgun-reload-1', 'shotgun-reload-2', 'shotgun-reload-3',
   'lantern-1', 'lantern-2', 'throw-1', 'throw-2',
 ];
-export const HUD_ICONS = ['heart', 'round', 'roundEmpty', 'shell', 'shellEmpty', 'flare', 'crosshair', 'hitTick'];
+// Each upgrade's icon is "up-" and its key.
+const UPGRADE_ICONS = UPGRADE_LIST.map((u) => `up-${u.key}`);
+export const HUD_ICONS = ['heart', 'round', 'roundEmpty', 'shell', 'shellEmpty', 'flare', 'crosshair', 'crosshairSteady', 'hitTick', 'ember', ...UPGRADE_ICONS];
 
 const FONTS = { 8: '8px Silkscreen, monospace', 16: '16px Silkscreen, monospace', 24: '24px Silkscreen, monospace' };
 const HOURS = ['9 PM', '10 PM', '11 PM', '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', 'dawn'];
@@ -20,10 +23,13 @@ const LOADING = 2; // how far down it goes to load: out of sight (a switch only 
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const SHOTGUN_RELOAD = ['shotgun-reload-1', 'shotgun-reload-2', 'shotgun-reload-3'];
 // Numbers as text, made once, so the HUD doesn't build new strings every frame.
-const NUMBERS = Array.from({ length: 201 }, (_, i) => String(i));
-const num = (n) => NUMBERS[Math.max(0, Math.min(200, Math.ceil(n)))];
+const NUMBERS = Array.from({ length: 1000 }, (_, i) => String(i));
+const num = (n) => NUMBERS[Math.max(0, Math.min(999, Math.ceil(n)))];
 // "N after-eaters fell", or "1 after-eater fell" for one.
 const fellText = (n) => `${n} after-eater${n === 1 ? '' : 's'} fell`;
+// The fire's lines, made once: what the next upgrade costs, and how many more embers it wants.
+const COSTS = Array.from({ length: UPGRADE_COUNT }, (_, n) => `Costs ${upgradeCost(n)} embers`);
+const WANTS = Array.from({ length: 61 }, (_, n) => `The fire wants ${n} more ember${n === 1 ? '' : 's'}`);
 
 const shown = { name: '', drop: 0 };
 // Which of n frames a countdown from `whole` to 0 is at, `t` left.
@@ -42,16 +48,18 @@ export function gunFrame(gun) {
     }
     name = id === RIFLE_ID ? 'rifle-idle' : 'shotgun-idle';
   } else if (id === RIFLE_ID) {
+    // The lever works in the time between shots (quicker with Quick lever).
+    const k = gun.interval / RIFLE.interval;
     if (gun.shotT < 0.06) name = 'rifle-fire';
-    else if (gun.shotT < 0.2) name = 'rifle-idle';
-    else if (gun.shotT < 0.3) name = 'rifle-lever-1';
-    else if (gun.shotT < RIFLE.interval) name = 'rifle-lever-2';
+    else if (gun.shotT < 0.2 * k) name = 'rifle-idle';
+    else if (gun.shotT < 0.3 * k) name = 'rifle-lever-1';
+    else if (gun.shotT < gun.interval) name = 'rifle-lever-2';
     else {
       // Loading, the rifle goes down out of sight and comes back up when it's done: the rounds are
       // heard going in, not seen. Down counts from when the loading shows: an empty rifle starts
       // loading with its last shot, but works the lever first.
       name = 'rifle-idle';
-      if (gun.reloading) drop = LOADING * ease(Math.min(gun.loadT, gun.shotT - RIFLE.interval) / LOWER);
+      if (gun.reloading) drop = LOADING * ease(Math.min(gun.loadT, gun.shotT - gun.interval) / LOWER);
       else if (gun.loadT < LOWER) drop = LOADING * ease(1 - gun.loadT / LOWER);
     }
   } else if (gun.shotT < 0.06) name = 'shotgun-fire';
@@ -104,8 +112,9 @@ export function drawHud(ctx, art, state, view, info) {
     const gf = gunFrame(g);
     frame(ctx, art, gf.name, w / 2 + bx, h + by + gf.drop * 60 + g.kick * 120);
   }
-  // Crosshair and hit tick.
-  icon(ctx, art, info.hitT < 0.15 ? 'hitTick' : 'crosshair', Math.floor(w / 2) - 3, Math.floor(h / 2) - 3);
+  // Crosshair and hit tick; the crosshair goes warm while Steady hands is ready.
+  const cross = info.hitT < 0.15 ? 'hitTick' : steadyReady(state) ? 'crosshairSteady' : 'crosshair';
+  icon(ctx, art, cross, Math.floor(w / 2) - 3, Math.floor(h / 2) - 3);
   // Hurt: the edges glow red, and pulse when you're low.
   let hurt = state.hurt > 0 ? (state.hurt / FEEL.hurtTime) * 0.55 : 0;
   if (p.health > 0 && p.health <= FEEL.lowHealth) hurt = Math.max(hurt, 0.18 + 0.12 * Math.sin(info.time * 7));
@@ -119,14 +128,16 @@ export function drawHud(ctx, art, state, view, info) {
     ctx.fillRect(w - e, e, e, h - 2 * e);
     ctx.globalAlpha = 1;
   }
-  // Health, bottom left.
+  // Health, bottom left, and the embers you carry beside it.
   const hx = 6, hy = h - 14;
   const hw = icon(ctx, art, 'heart', hx, hy);
   text(ctx, num(p.health), hx + hw + 3, hy + 1, p.health <= FEEL.lowHealth ? ui.hurt : ui.text);
+  const ew = icon(ctx, art, 'ember', hx + 42, hy);
+  text(ctx, num(state.carried), hx + 42 + ew + 3, hy + 1, ui.text);
   // Ammo and flares, bottom right.
   let x = w - 6;
   if (g.current === RIFLE_ID) {
-    for (let i = RIFLE.rounds - 1; i >= 0; i--) x -= icon(ctx, art, i < g.rifle ? 'round' : 'roundEmpty', x - 4, hy) + 1;
+    for (let i = g.rounds - 1; i >= 0; i--) x -= icon(ctx, art, i < g.rifle ? 'round' : 'roundEmpty', x - 4, hy) + 1;
   } else {
     text(ctx, num(g.spare), x, hy + 1, ui.dim, 8, 'right');
     x -= 14;
@@ -136,6 +147,12 @@ export function drawHud(ctx, art, state, view, info) {
   for (let i = 0; i < g.flares; i++) x -= icon(ctx, art, 'flare', x - 5, hy) + 1;
   // The hour, top centre.
   text(ctx, hourLabel(state.night), w / 2, 6, ui.dim, 8, 'center');
+  // At the fire: its offer, or how many more embers it wants.
+  if (state.choosing) drawOffer(ctx, art, state, w, h);
+  else if (state.atFire && state.bought < UPGRADE_COUNT) {
+    const need = upgradeCost(state.bought) - state.carried;
+    if (need > 0) text(ctx, WANTS[Math.min(need, WANTS.length - 1)], w / 2, Math.round(h * 0.26), ui.text, 8, 'center');
+  }
   // A banner: the new hour, a supply, a warning.
   const b = info.banner;
   if (b && b.t > 0) {
@@ -146,7 +163,33 @@ export function drawHud(ctx, art, state, view, info) {
   }
 }
 
-// The title, death and dawn screens, drawn over the world. info: { best: { hour, dawns }, reached, kills, time }
+// The fire's offer: a panel down the middle of the view, a row a card (its key, icon, name and line).
+function drawOffer(ctx, art, state, w, h) {
+  const ui = art.ui, n = state.offerN, row = 26;
+  const bw = Math.min(w - 16, 300), x = Math.round((w - bw) / 2), top = Math.round(h * 0.2);
+  ctx.globalAlpha = 0.82;
+  ctx.fillStyle = ui.night;
+  ctx.fillRect(x - 8, top - 8, bw + 16, 30 + n * row);
+  ctx.globalAlpha = 1;
+  text(ctx, 'The fire shows you three', w / 2, top, ui.text, 8, 'center');
+  text(ctx, COSTS[Math.min(state.bought, COSTS.length - 1)], w / 2, top + 10, ui.dim, 8, 'center');
+  for (let i = 0; i < n; i++) {
+    const u = UPGRADE_LIST[state.offer[i]], y = top + 26 + i * row;
+    text(ctx, NUMBERS[i + 1], x, y + 3, ui.text);
+    icon(ctx, art, UPGRADE_ICONS[state.offer[i]], x + 12, y);
+    text(ctx, u.name, x + 30, y, ui.text);
+    text(ctx, u.line, x + 30, y + 10, ui.dim);
+  }
+}
+
+// The upgrades a night bought, in order, as a row of icons centred at y.
+function drawTaken(ctx, art, w, y, taken, bought) {
+  let x = Math.round(w / 2 - (bought * 14 - 2) / 2);
+  for (let i = 0; i < bought; i++) x += icon(ctx, art, UPGRADE_ICONS[taken[i]], x, y) + 2;
+}
+
+// The title, death and dawn screens, drawn over the world.
+// info: { best: { hour, dawns }, reached, kills, time, taken (upgrade ids in order), bought }
 export function drawScreen(ctx, art, view, screen, info) {
   const { w, h } = view, ui = art.ui;
   ctx.globalAlpha = screen === 'title' ? 0.35 : 0.55;
@@ -165,10 +208,12 @@ export function drawScreen(ctx, art, view, screen, info) {
   } else if (screen === 'dead') {
     text(ctx, "You didn't see the dawn", w / 2, h * 0.32, ui.hurt, 16, 'center');
     text(ctx, `It was ${NIGHT.hours[Math.min(info.reached, NIGHT.hours.length - 1)]}.  ${fellText(info.kills)}.`, w / 2, h * 0.32 + 24, ui.dim, 8, 'center');
+    if (info.bought > 0) drawTaken(ctx, art, w, Math.round(h * 0.32 + 38), info.taken, info.bought);
     if (blink) text(ctx, 'Click to try again', w / 2, h * 0.62, ui.text, 8, 'center');
   } else if (screen === 'dawn') {
     text(ctx, 'Dawn', w / 2, h * 0.3, ui.text, 24, 'center');
     text(ctx, `You held the cabin.  ${fellText(info.kills)}.`, w / 2, h * 0.3 + 30, ui.dim, 8, 'center');
+    if (info.bought > 0) drawTaken(ctx, art, w, Math.round(h * 0.3 + 44), info.taken, info.bought);
     if (blink) text(ctx, 'Click for another night', w / 2, h * 0.62, ui.text, 8, 'center');
   }
 }

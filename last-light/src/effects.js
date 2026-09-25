@@ -1,10 +1,12 @@
 // The dark spray when a creature is hit: a pool of droplets thrown up and away from you, falling
-// back to the snow. They're drawn by the renderer as single pixels. Cosmetic only, so it's driven by
-// the frame clock, not the simulation.
-const MAX = 160;
+// back to the snow. And sparks rising off a burning creature. Both are drawn by the renderer as
+// single pixels (sparks glowing). Cosmetic only, so they're driven by the frame clock, not the
+// simulation.
+const MAX = 160, MAX_SPARKS = 96;
+const particles = (n) => Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0 }));
 
 export function createEffects() {
-  return { drops: Array.from({ length: MAX }, () => ({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0 })), next: 0 };
+  return { drops: particles(MAX), next: 0, sparks: particles(MAX_SPARKS), nextSpark: 0 };
 }
 
 // Deterministic spread per droplet, so the spray needs no Math.random.
@@ -31,7 +33,27 @@ export function spray(fx, x, y, z, fromX, fromY, count = 8) {
   }
 }
 
+// Sends one spark up from (x, y) at height z; `seed` varies its drift.
+export function spark(fx, x, y, z, seed) {
+  const d = fx.sparks[fx.nextSpark];
+  fx.nextSpark = (fx.nextSpark + 1) % MAX_SPARKS;
+  d.x = x + jitter(seed, 5) * 0.15;
+  d.y = y + jitter(seed, 6) * 0.15;
+  d.z = z + jitter(seed, 7) * 0.2;
+  d.vx = jitter(seed, 8) * 0.3;
+  d.vy = jitter(seed, 9) * 0.3;
+  d.vz = 0.7 + jitter(seed, 10) * 0.3;
+  d.t = 0.5 + jitter(seed, 11) * 0.2;
+}
+
 export function updateEffects(fx, dt) {
+  for (const d of fx.sparks) {
+    if (d.t <= 0) continue;
+    d.t -= dt;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    d.z += d.vz * dt;
+  }
   for (const d of fx.drops) {
     if (d.t <= 0) continue;
     d.t -= dt;

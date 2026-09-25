@@ -10,6 +10,7 @@
 //            whose top row carries on above it
 //   flake    the palette index falling snow is drawn in
 //   ichor    the palette index of the spray when a creature is hit
+//   spark    the palette index of the sparks off a burning creature (they glow)
 import { castRay, createHit } from './raycast.js';
 import { BAYER, LEVELS } from './shade.js';
 import { lightAt, RES } from './lightmap.js';
@@ -49,15 +50,16 @@ export function createRenderer(art, map) {
   // This frame's camera, shared with point().
   let cx = 0, cy = 0, dirX = 1, dirY = 0, hz = 0, lm = null;
 
-  // A point in the world (height z) as one lit pixel, or a 2x2 block up close, hidden by walls.
-  function point(wx, wy, z, idx) {
+  // A point in the world (height z) as one lit pixel, or a 2x2 block up close, hidden by walls. A
+  // glowing point ignores the light.
+  function point(wx, wy, z, idx, glow) {
     const rx = wx - cx, ry = wy - cy;
     const depth = rx * dirX + ry * dirY;
     if (depth < 0.2) return;
     const sxp = (w / 2 + ((rx * -dirY + ry * dirX) / depth) * focal) | 0;
     const syp = (hz + ((0.5 - z) * focal) / depth) | 0;
     if (sxp < 0 || sxp >= w || syp < 0 || syp >= h || depth >= zbuf[sxp]) return;
-    let l = (lightAt(lm, wx, wy) * TOP + 0.5) | 0;
+    let l = glow ? TOP : (lightAt(lm, wx, wy) * TOP + 0.5) | 0;
     if (l > TOP) l = TOP;
     if (l === 0) return;
     const c = table[(l << 8) | idx];
@@ -267,8 +269,9 @@ export function createRenderer(art, map) {
         }
       }
 
-      // The spray from hits.
-      if (f.drops) for (const d of f.drops) if (d.t > 0) point(d.x, d.y, d.z, art.ichor);
+      // The spray from hits, and sparks off anything burning.
+      if (f.drops) for (const d of f.drops) if (d.t > 0) point(d.x, d.y, d.z, art.ichor, false);
+      if (f.sparks) for (const d of f.sparks) if (d.t > 0) point(d.x, d.y, d.z, art.spark, true);
 
       // Falling snow: a box of flakes that drifts with you, drawn as single pixels, hidden by walls
       // and by the cabin roof.

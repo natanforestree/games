@@ -20,6 +20,7 @@ export function fakeArt() {
     sky: { w: 16, h: 8, px: new Uint8Array(128).fill(1) },
     flake: 1,
     ichor: 7,
+    spark: 6,
     sprites: {
       crawler: creature(),
       gaunt: creature({ windup: [15] }, 16),
@@ -29,6 +30,7 @@ export function fakeArt() {
       well: sprite(0.5, { idle: [0] }, 1),
       pine: sprite(2.5, { idle: [0] }, 1),
       flare: sprite(0.2, { idle: [0, 1, 2] }, 3),
+      ember: sprite(0.12, { idle: [0, 1, 2] }, 3),
       'pickup-flare': sprite(0.2, { idle: [0] }, 1),
       'pickup-shells': sprite(0.2, { idle: [0] }, 1),
       'pickup-shotgun': sprite(0.2, { idle: [0] }, 1),

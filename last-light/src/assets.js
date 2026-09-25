@@ -2,7 +2,7 @@
 // world's images (textures, sky, sprites) into palette indices for the renderer. The guns in your
 // hands and the HUD icons stay as images, drawn with the canvas.
 //
-//   palette.json   { colors: ["#rrggbb", ...] (index 1 up), glow: [indices], names: { flake, ichor, ui, uiDim, hurt, night } }
+//   palette.json   { colors: ["#rrggbb", ...] (index 1 up), glow: [indices], names: { flake, ichor, spark, ui, uiDim, hurt, night } }
 //   textures.json  { size: 32, names: [...] }, textures.png: the tiles side by side in that order
 //   sky.png        the panorama; its bottom row sits on the horizon, and it wraps round
 //   sprites.json   { sprites: { name: { x, y, w, h, count, height, stride?, ms?, anims: { anim: [frame...] } } } }
@@ -148,6 +148,7 @@ export function unpackArt(json, images, pixels) {
     palette, shades, walls, floors, sky, sprites,
     flake: palette.names.flake,
     ichor: palette.names.ichor,
+    spark: palette.names.spark,
     hands: { image: images.hands, frames: json.hands.frames },
     hud: { image: images.hud, icons: json.hud.icons },
     ui: { text: color('ui'), dim: color('uiDim'), hurt: color('hurt'), night: color('night') },

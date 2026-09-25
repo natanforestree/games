@@ -1,14 +1,16 @@
 // Turns the game state into what the renderer draws this frame: the camera (blended between the last
 // two updates, looking where the mouse says, with the head bob and the gun's kick), the lights, and every sprite with its animation
-// frame. Allocates nothing per frame: the sprite list is a fixed pool.
+// frame. Embers glow on the snow, dimming and flickering as they cool, and light the ground round them;
+// a burning creature is lit by its fire and throws sparks. Allocates nothing per frame: the sprite list
+// is a fixed pool.
 //
 // art.sprites[name] = { height, stride?, ms?, frames: [{ w, h, px }], anims: { name: [frame indices] } },
 // with the animations SPRITE_ANIMS lists.
-import { VIEW, LIGHT, FEEL, CREATURES } from './tuning.js';
+import { VIEW, LIGHT, FEEL, CREATURES, EMBERS, PERKS } from './tuning.js';
 import { KINDS, LEAPER } from './creatures.js';
 import { beginLight, addLight, falloff } from './lightmap.js';
 import { ambientFor, skyLevelFor } from './night.js';
-import { createEffects, spray, updateEffects } from './effects.js';
+import { createEffects, spray, spark, updateEffects } from './effects.js';
 
 // Every sprite the game draws, and the animations each must have.
 export const SPRITE_ANIMS = {
@@ -20,6 +22,7 @@ export const SPRITE_ANIMS = {
   well: ['idle'],
   pine: ['idle'],
   flare: ['idle'],
+  ember: ['idle'],
   'pickup-flare': ['idle'],
   'pickup-shells': ['idle'],
   'pickup-shotgun': ['idle'],
@@ -28,6 +31,9 @@ const MAX_SPRITES = 128;
 export const SPRAY_Z = [0.25, 0.7, 0.4, 1.3]; // where on each kind (crawler, gaunt, leaper, mother) the spray comes from
 const PICKUP_SPRITE = ['pickup-flare', 'pickup-shells', 'pickup-shotgun'];
 const SIDE_FROM = (50 * Math.PI) / 180, SIDE_TO = (130 * Math.PI) / 180;
+const EMBER_SIZE = [0, 1, 1.25, 1.5]; // an ember's height, times its sprite's, by value
+const FIRE = { full: 0.3, dark: 1.6, intensity: 0.6 }; // the light of a creature burning
+const SPARK_EVERY = 0.05; // seconds between sparks off each burning creature
 
 export function createScene(art) {
   for (const [name, anims] of Object.entries(SPRITE_ANIMS)) {
@@ -37,8 +43,8 @@ export function createScene(art) {
   const sprites = Array.from({ length: MAX_SPRITES }, () => ({ x: 0, y: 0, height: 1, lift: 0, frame: null, flip: false, glow: 15 }));
   return {
     art, sprites,
-    frame: { x: 0, y: 0, facing: 0, pitch: 0, bob: 0, map: null, lightmap: null, skyLevel: 0, time: 0, sprites, spriteCount: 0, snow: true, drops: null },
-    shakeX: 0, shakeY: 0, count: 0,
+    frame: { x: 0, y: 0, facing: 0, pitch: 0, bob: 0, map: null, lightmap: null, skyLevel: 0, time: 0, sprites, spriteCount: 0, snow: true, drops: null, sparks: null },
+    shakeX: 0, shakeY: 0, count: 0, sparkT: 0, sparkN: 0,
     fx: createEffects(),
   };
 }
@@ -90,12 +96,12 @@ export function creatureFrame(art, c, camX, camY, camRightX, camRightY, out) {
   return out;
 }
 
-function put(scene, sx, sy, spr, frame, lift, flip, glow) {
+function put(scene, sx, sy, spr, frame, lift, flip, glow, height = spr.height) {
   if (scene.count >= MAX_SPRITES) return;
   const s = scene.sprites[scene.count++];
   s.x = sx;
   s.y = sy;
-  s.height = spr.height;
+  s.height = height;
   s.frame = frame;
   s.lift = lift;
   s.flip = flip;
@@ -120,6 +126,7 @@ export function buildFrame(scene, state, lightmap, view) {
   f.skyLevel = skyLevelFor(state.night);
   updateEffects(scene.fx, view.dt ?? 0);
   f.drops = scene.fx.drops;
+  f.sparks = scene.fx.sparks;
   // Head bob: a step every 0.9 cells walked, scaled by how fast you're going; the kick lifts the view.
   const speed = Math.min(1, Math.sqrt(p.vx * p.vx + p.vy * p.vy) / 3);
   const px = view.h / VIEW.targetHeight;
@@ -133,13 +140,30 @@ export function buildFrame(scene, state, lightmap, view) {
   beginLight(lightmap, ambientFor(state.night));
   const L = LIGHT;
   const flick = 0.95 + 0.05 * Math.sin(t * 13.1) * Math.sin(t * 7.3);
-  addLight(lightmap, x, y, L.lantern.full, L.lantern.dark, L.lantern.intensity * flick);
+  const wick = state.perks.wick;
+  addLight(lightmap, x, y, wick ? PERKS.wick.full : L.lantern.full, wick ? PERKS.wick.dark : L.lantern.dark, L.lantern.intensity * flick);
   for (const fl of state.flares) {
     if (fl.t <= 0) continue;
     const dying = Math.min(1, fl.t); // fades over its last second
     addLight(lightmap, fl.x, fl.y, L.flare.full, L.flare.dark, L.flare.intensity * dying * (0.85 + 0.15 * Math.sin(t * 31 + fl.x)));
   }
   if (state.flash > 0) addLight(lightmap, x, y, L.muzzle.full, L.muzzle.dark, L.muzzle.intensity);
+  // Each ember lights the snow round it, dimming as it cools.
+  for (const e of state.embers) {
+    if (e.t <= 0) continue;
+    const E = EMBERS.light;
+    addLight(lightmap, e.x, e.y, E.full, E.dark, E.intensity * Math.min(1.5, 0.75 + 0.25 * e.value) * emberWarmth(e, t));
+  }
+  // A burning creature is lit by its fire, and throws sparks.
+  scene.sparkT += view.dt ?? 0;
+  const sparking = scene.sparkT >= SPARK_EVERY;
+  if (sparking) scene.sparkT %= SPARK_EVERY;
+  for (const c of state.creatures) {
+    if (!c.alive || c.burnT <= 0) continue;
+    const cx = lerp(c.px, c.x, view.alpha), cy = lerp(c.py, c.y, view.alpha);
+    addLight(lightmap, cx, cy, FIRE.full, FIRE.dark, FIRE.intensity * (0.8 + 0.2 * Math.sin(t * 23 + c.id)));
+    if (sparking) spark(scene.fx, cx, cy, c.lift + CREATURES[KINDS[c.kind]].height * 0.5, scene.sparkN++);
+  }
 
   // Sprites.
   scene.count = 0;
@@ -163,6 +187,19 @@ export function buildFrame(scene, state, lightmap, view) {
   }
   const flareSpr = art.sprites.flare;
   for (const fl of state.flares) if (fl.t > 0) put(scene, fl.x, fl.y, flareSpr, loopFrame(flareSpr, 'idle', t), 0, false, 15);
+  const emberSpr = art.sprites.ember;
+  for (const e of state.embers) {
+    if (e.t <= 0) continue;
+    const frame = loopFrame(emberSpr, 'idle', t + ((e.x * 1.37 + e.y) % 1));
+    put(scene, e.x, e.y, emberSpr, frame, 0, false, Math.round(15 * emberWarmth(e, t)), emberSpr.height * EMBER_SIZE[e.value]);
+  }
   f.spriteCount = scene.count;
   return f;
+}
+
+// How warm an ember looks (0 to 1): full until its last seconds, then dimming, and flickering.
+export function emberWarmth(e, t) {
+  if (e.t >= EMBERS.flicker) return 1;
+  const k = e.t / EMBERS.flicker;
+  return (0.3 + 0.7 * k) * (Math.sin(t * 31 + e.x * 7) > -0.2 ? 1 : 0.45);
 }
