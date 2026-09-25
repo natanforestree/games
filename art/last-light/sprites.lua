@@ -1292,6 +1292,19 @@ local function flareFrames()
   return frames
 end
 
+-- An ember on the snow: the warmth an after-eater stole, spilling out where it died. 10x6: a coal with
+-- a glowing heart (fire colours glow, so it shows in the dark) in a dark crust, three frames of flicker.
+local EMBER_KEY = { Y = C.fire4, O = C.fire3, r = C.fire2, E = C.ember0, S = C.snow3, s = C.snow2 }
+local function emberFrames()
+  local frames = {}
+  for _, rows in ipairs({
+    { "....r.....", "...EOrE...", "..EOYOrE..", ".ErOYYOrE.", ".EErOOrEE.", "sSEEEEEESs" },
+    { "......r...", "...EOrE...", "..EYOOrE..", ".ErOYOYrE.", ".EEOrOrEE.", "sSEEEEEESs" },
+    { "...r......", "...ErOE...", "..EOOYrE..", ".EOYYOrrE.", ".EErOOrEE.", "sSEEEEEESs" },
+  }) do frames[#frames + 1] = picture(rows, EMBER_KEY) end
+  return frames
+end
+
 local PICKUP_KEY = {
   F = C.flare2, R = C.flare1, h = C.hurt, k = C.iron1, K = C.iron2, i = C.iron0, g = C.stone2, G = C.stone3,
   B = C.brass1, b = C.brass0, W = C.snow4, S = C.snow3, s = C.snow2, d = C.snow1, m = C.mouth,
@@ -1356,6 +1369,7 @@ L.writeSprites(P, {
   { name = "well", frames = { well() }, height = 0.55, anims = { idle = { 0 } } },
   { name = "pine", frames = { pine() }, height = 2.6, anims = { idle = { 0 } } },
   { name = "flare", frames = flareFrames(), height = 0.25, ms = 80, anims = { idle = { 0, 1, 2 } } },
+  { name = "ember", frames = emberFrames(), height = 0.12, ms = 110, anims = { idle = { 0, 1, 2 } } },
   { name = "pickup-flare", frames = { pickupFlare() }, height = 0.2, anims = { idle = { 0 } } },
   { name = "pickup-shells", frames = { pickupShells() }, height = 0.2, anims = { idle = { 0 } } },
   { name = "pickup-shotgun", frames = { pickupShotgun() }, height = 0.2, anims = { idle = { 0 } } },

@@ -10,6 +10,7 @@ import { SPRITE_ANIMS, SPRAY_Z } from '../src/scene.js';
 import { KINDS } from '../src/creatures.js';
 import { CREATURES } from '../src/tuning.js';
 import { HAND_FRAMES, HUD_ICONS } from '../src/hud.js';
+import { UPGRADE_LIST } from '../src/upgrades.js';
 
 const file = (f) => new URL(`../${f}`, import.meta.url);
 const json = (f) => JSON.parse(readFileSync(file(`assets/${f}`), 'utf8'));
@@ -27,7 +28,8 @@ test('the palette: up to 255 colours, with glow indices and the named colours th
   for (const c of p.colors) assert.match(c, /^#[0-9a-f]{6}$/);
   assert.equal(new Set(p.colors).size, p.colors.length, 'no colour twice');
   for (const i of p.glow) assert.ok(i >= 1 && i <= p.colors.length);
-  for (const n of ['flake', 'ichor', 'ui', 'uiDim', 'hurt', 'night']) assert.ok(p.names[n] >= 1 && p.names[n] <= p.colors.length, n);
+  for (const n of ['flake', 'ichor', 'spark', 'ui', 'uiDim', 'hurt', 'night']) assert.ok(p.names[n] >= 1 && p.names[n] <= p.colors.length, n);
+  assert.ok(p.glow.includes(p.names.spark), 'sparks glow');
 });
 
 test('no two palette colours are close enough for readback noise to land between them', () => {
@@ -97,6 +99,14 @@ test("a hit's spray comes from a creature's body, a third to three quarters of t
     const up = SPRAY_Z[i] / sprites[k].height;
     assert.ok(up >= 0.35 && up <= 0.75, `${k}: spray at ${SPRAY_Z[i]} is ${up.toFixed(2)} of its ${sprites[k].height} height`);
   });
+});
+
+test('the ember and the new icons are the sizes the scene and the HUD expect', () => {
+  const { sprites } = json('sprites.json');
+  assert.deepEqual([sprites.ember.w, sprites.ember.h, sprites.ember.count, sprites.ember.height], [10, 6, 3, 0.12]);
+  const { icons } = json('hud.json');
+  for (const n of ['ember', 'crosshairSteady']) assert.deepEqual(icons[n].slice(2), [7, 7], n);
+  for (const u of UPGRADE_LIST) assert.deepEqual(icons[`up-${u.key}`].slice(2), [12, 12], u.key);
 });
 
 test('every hands frame and HUD icon, inside their sheets', () => {

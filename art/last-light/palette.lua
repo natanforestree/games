@@ -46,7 +46,7 @@ P.hex = {
 P.glow = { "star", "fire2", "fire3", "fire4", "window", "eye1", "eye2", "flare1", "flare2" }
 
 -- The colours the game looks up by name.
-P.names = { flake = "snow4", ichor = "ichor1", ui = "ui", uiDim = "uiDim", hurt = "hurt", night = "void" }
+P.names = { flake = "snow4", ichor = "ichor1", spark = "fire3", ui = "ui", uiDim = "uiDim", hurt = "hurt", night = "void" }
 
 -- Shorthand: P.c.snow2 is "#8a98b4".
 P.c = P.hex
