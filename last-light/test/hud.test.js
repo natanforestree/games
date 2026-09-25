@@ -17,9 +17,43 @@ test('the rifle: flash, idle, the lever working, reloading', () => {
   g.shotT = 5;
   g.reloading = true;
   g.reloadT = RIFLE.reloadPerRound * 0.1;
-  assert.equal(gunFrame(g).name, 'rifle-reload-3');
+  assert.equal(gunFrame(g).name, 'rifle-load-in');
   g.reloading = false;
   assert.equal(gunFrame(g).name, 'rifle-idle');
+});
+
+test('loading the rifle: it tilts up, and each round goes home just as its time runs out', () => {
+  const g = createGun();
+  g.shotT = 5;
+  g.reloading = true;
+  g.reloadT = RIFLE.reloadPerRound;
+  g.loadT = 0.03;
+  assert.equal(gunFrame(g).name, 'rifle-tilt', 'on the way up');
+  g.loadT = 1;
+  const seen = [];
+  for (let i = 0; i < 5; i++) {
+    g.reloadT = RIFLE.reloadPerRound * (1 - (i + 0.5) / 5);
+    seen.push(gunFrame(g).name);
+  }
+  assert.deepEqual(seen, ['rifle-load-home', 'rifle-load-back', 'rifle-load-up', 'rifle-load-gate', 'rifle-load-in']);
+  g.reloading = false;
+  g.loadT = 0.03;
+  assert.equal(gunFrame(g).name, 'rifle-tilt', 'on the way down');
+  g.loadT = 1;
+  assert.equal(gunFrame(g).name, 'rifle-idle');
+});
+
+test('an empty rifle that starts loading by itself works the lever first, then tilts up', () => {
+  const g = createGun();
+  g.reloading = true;
+  g.reloadT = RIFLE.reloadPerRound / 2;
+  g.loadT = RIFLE.interval - 0.1; // the reload started with the last shot
+  g.shotT = RIFLE.interval - 0.1;
+  assert.equal(gunFrame(g).name, 'rifle-lever-2');
+  g.loadT = g.shotT = RIFLE.interval + 0.03;
+  assert.equal(gunFrame(g).name, 'rifle-tilt');
+  g.loadT = g.shotT = RIFLE.interval + 0.2;
+  assert.match(gunFrame(g).name, /^rifle-load-/);
 });
 
 test('switching lowers one gun and raises the other', () => {
@@ -46,7 +80,10 @@ test('every frame name the HUD can ask for exists in the hands art', () => {
       for (let t = 0; t < 1.3; t += 0.01) {
         g.shotT = t;
         g.reloadT = t;
-        names.add(gunFrame(g).name);
+        for (const loadT of [0, 1]) {
+          g.loadT = loadT;
+          names.add(gunFrame(g).name);
+        }
       }
     }
   }

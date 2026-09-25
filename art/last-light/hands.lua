@@ -379,9 +379,24 @@ local MUZZLE = { CX + 24, CY + 28 }
 local RIFLE_AT = V(0.13, 0.2, 0.38)
 local RIFLE_FWD = aimAt(RIFLE_AT, V(0, -0.024, 0.66), MUZZLE[1], MUZZLE[2])
 
+-- Pushing one round into the loading gate, in five steps: where along the rifle the round's base is
+-- (z), how far out from the receiver's side and down from the gate the hand holds it (out, dn), how
+-- much of the round shows (all of it in the hand, less as it goes in, none once it's home), and
+-- whether its nose has pushed the gate's cover open.
+local LOAD = {
+  { z = 0.03, out = 0.014, dn = 0.008, len = 0.034 }, -- up from below with a round
+  { z = 0.062, out = 0, dn = 0, len = 0.034, open = true }, -- its nose at the gate
+  { z = 0.08, out = 0, dn = 0, len = 0.014, open = true }, -- half in
+  { z = 0.104, out = 0, dn = 0, len = 0 }, -- home, the thumb on the gate
+  { z = 0.066, out = 0.016, dn = 0.01, len = 0 }, -- the empty hand dropping back for the next
+}
+-- The rifle as you load it: rolled to show the gate, and brought up a little so the hand stays in
+-- view. Halfway there, as it goes up and comes back down, your hand is still on the wrist.
+local LOADING = { roll = -0.9, lower = -0.02, tip = 0.1 }
+
 -- p: roll (radians, its right side up towards you), lower (metres; negative raises it) and tip
 -- (radians, muzzle up) for the reload; lever (0 shut to 1 open); case (a spent case flying, 0..1);
--- gate (1 a round at the loading gate, 2 half in, 3 pushed home); fire.
+-- load (a stage of pushing a round in, from LOAD below); fire.
 local function rifle(p)
   local fwd = RIFLE_FWD
   if p.tip then fwd = rot(fwd, V(1, 0, 0), p.tip) end
@@ -400,7 +415,7 @@ local function rifle(p)
   blk(s, g, V(0, 0.0, 0.09), { 0.0135, 0.023, 0.074 }, "brass", "receiver", function(i, sg, q)
     if i == 1 and sg > 0 and q[3] > 0.05 and q[3] < 0.5 and q[2] > -0.05 and q[2] < 0.55 then
       if q[3] < 0.1 or q[3] > 0.45 or q[2] < 0 or q[2] > 0.5 then return C.brass0 end
-      return (p.gate and p.gate < 3) and C.void or C.iron1
+      return (p.load and p.load.open) and C.void or C.iron1
     end
     if i == 1 and (math.abs(math.abs(q[2]) - 0.78) < 0.06 or math.abs(math.abs(q[3]) - 0.88) < 0.04) then return C.brass0 end
     if i == 1 and math.abs(q[3] + 0.55) < 0.08 and math.abs(q[2] - 0.3) < 0.12 then return C.wood1 end
@@ -421,19 +436,18 @@ local function rifle(p)
   end
   cap(s, g, V(0, 0.022, 0.03), V(0, 0.038, 0.02), 0.0028, "iron", "trigger")
   -- A round going into the loading gate, or a spent case flung up out of the port.
-  if p.gate and p.gate < 3 then
-    local z0 = ({ 0.028, 0.056 })[p.gate]
-    cap(s, g, V(0.02, 0.011, z0), V(0.02, 0.011, z0 + 0.034), 0.0058, "brass", "round")
+  local ld = p.load
+  if ld and ld.len > 0 then
+    cap(s, g, V(0.02 + ld.out, 0.011 + ld.dn, ld.z), V(0.02 + ld.out, 0.011 + ld.dn, ld.z + ld.len), 0.0058, "brass", "round")
   end
   if p.case then
     local c0 = V(0.01 + 0.05 * p.case, -0.045 - 0.05 * p.case, 0.075 - 0.01 * p.case)
     local d = mul(norm(V(math.cos(p.case * 5), math.sin(p.case * 5), 0.4)), 0.011)
     cap(s, g, sub(c0, d), add(c0, d), 0.005, "brass", "case")
   end
-  -- Your hand: on the wrist, or up at the gate, the thumb pushing a round in by its base.
-  if p.gate then
-    local z = ({ 0.028, 0.056, 0.094 })[p.gate] -- the thumb's tip: at the round's base, then on the gate
-    local tip = place(g, V(0.021, 0.007, z - 0.004))
+  -- Your hand: on the wrist, or at the gate, the thumb pushing a round in by its base.
+  if ld then
+    local tip = place(g, V(0.021 + ld.out, 0.007 + ld.dn, ld.z - 0.001))
     -- A loose fist out to the right of the gate, clear of the stock (which runs in front of anything
     -- lower down), its curled fingers towards you and lined up with the rifle; the sleeve drops away
     -- out of the view, and the thumb reaches across to the round.
@@ -441,7 +455,7 @@ local function rifle(p)
     local sy = norm(V(along[1], along[2], 0))
     local fist = add(tip, V(0.055, 0.022, -0.02))
     local h = pose(fist, V(sy[2], -sy[1], 0), sy, V(0, 0, 1), SIZE)
-    s[#s + 1] = capsule(place(h, V(0, 0.02, 0.01)), add(fist, V(0.05, 0.4, 0.06)), 0.034 * SIZE, "coat", "arm")
+    s[#s + 1] = capsule(place(h, V(0, 0.03, 0.02)), add(fist, V(0.05, 0.4, 0.06)), 0.026 * SIZE, "coat", "arm")
     ell(s, h, V(0, 0, 0), V(1, 0, 0), V(0, 1, 0), { 0.022, 0.026, 0.02 }, "skin", "hand")
     for i = 0, 3 do cap(s, h, V(-0.014 + i * 0.0095, -0.013, -0.017), V(-0.013 + i * 0.0095, 0.011, -0.02), 0.0058, "skin", "hand") end
     -- the thumb, from the top of the fist, bowed a little towards you at its joint
@@ -708,9 +722,12 @@ local pieces = {
   crop(rifle({ fire = true }), "rifle-fire"),
   crop(rifle({ lever = 0.5, case = 0.25 }), "rifle-lever-1"),
   crop(rifle({ lever = 1, case = 0.8 }), "rifle-lever-2"),
-  crop(rifle({ roll = -0.9, lower = -0.02, tip = 0.1, gate = 1 }), "rifle-reload-1"),
-  crop(rifle({ roll = -0.95, lower = -0.018, tip = 0.1, gate = 2 }), "rifle-reload-2"),
-  crop(rifle({ roll = -0.9, lower = -0.02, tip = 0.1, gate = 3 }), "rifle-reload-3"),
+  crop(rifle({ roll = LOADING.roll / 2, lower = LOADING.lower / 2, tip = LOADING.tip / 2 }), "rifle-tilt"),
+  crop(rifle({ roll = LOADING.roll, lower = LOADING.lower, tip = LOADING.tip, load = LOAD[1] }), "rifle-load-up"),
+  crop(rifle({ roll = LOADING.roll, lower = LOADING.lower, tip = LOADING.tip, load = LOAD[2] }), "rifle-load-gate"),
+  crop(rifle({ roll = LOADING.roll, lower = LOADING.lower, tip = LOADING.tip, load = LOAD[3] }), "rifle-load-in"),
+  crop(rifle({ roll = LOADING.roll, lower = LOADING.lower, tip = LOADING.tip, load = LOAD[4] }), "rifle-load-home"),
+  crop(rifle({ roll = LOADING.roll, lower = LOADING.lower, tip = LOADING.tip, load = LOAD[5] }), "rifle-load-back"),
   crop(shotgun({}), "shotgun-idle"),
   crop(shotgun({ fire = true }), "shotgun-fire"),
   crop(shotgun({ open = 1, lower = 0.02 }), "shotgun-reload-1"),

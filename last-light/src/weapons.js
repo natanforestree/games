@@ -25,6 +25,7 @@ export function createGun() {
     flares: FLARE.start, flareT: 0,
     kick: 0, // view kick, radians, springing back
     shotT: 0, // seconds since the last shot, for the gun's animation
+    loadT: 1, // seconds since reloading last started or stopped, for the hands
   };
 }
 
@@ -151,6 +152,7 @@ function throwFlare(state) {
 // intents: { fire (held), reload (presses), weapon (0 none, 1 rifle, 2 shotgun), weaponStep (-1, 0, 1), flare (presses) }
 export function updateGun(state, intents, dt) {
   const g = state.gun;
+  const loading = g.reloading;
   g.shotT += dt;
   if (g.cooldown > 0) g.cooldown -= dt;
   if (g.flareT > 0) g.flareT -= dt;
@@ -186,6 +188,7 @@ export function updateGun(state, intents, dt) {
   }
   if (intents.fire && g.cooldown <= 0 && g.switching <= 0) fire(state);
   if (intents.flare) throwFlare(state);
+  g.loadT = g.reloading === loading ? g.loadT + dt : 0;
 }
 
 export function updateFlares(state, dt) {

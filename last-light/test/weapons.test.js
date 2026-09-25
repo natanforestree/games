@@ -85,6 +85,20 @@ test('holding fire shoots the rifle at its lever rate, 8 rounds, then it reloads
   assert.equal(s.gun.reloading, false);
 });
 
+test("the gun keeps time since loading last started or stopped, for the hands", () => {
+  const s = quietState();
+  assert.ok(s.gun.loadT >= 0.5, 'a new gun is long settled');
+  run(s, DT, intents({ facing: south, fire: true })); // one shot: 7 left
+  run(s, RIFLE.interval, intents({ facing: south }));
+  run(s, DT, intents({ facing: south, reload: 1 }));
+  assert.ok(s.gun.reloading && s.gun.loadT < DT * 1.5, `just started: ${s.gun.loadT}`);
+  run(s, 0.1, intents({ facing: south }));
+  assert.ok(s.gun.reloading && Math.abs(s.gun.loadT - 0.1) < DT * 1.5, `loading for 0.1 s: ${s.gun.loadT}`);
+  run(s, RIFLE.reloadPerRound, intents({ facing: south }));
+  assert.equal(s.gun.reloading, false);
+  assert.ok(s.gun.loadT < RIFLE.reloadPerRound, `stopped a moment ago: ${s.gun.loadT}`);
+});
+
 test('reloading goes a round at a time, and firing interrupts it', () => {
   const s = quietState();
   run(s, RIFLE.interval * 3 + 0.01, intents({ facing: south, fire: true })); // 4 shots: 4 left
